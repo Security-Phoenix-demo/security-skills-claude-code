@@ -1,0 +1,21 @@
+{
+  "name": "cti-search-plugin",
+  "version": "1.0.0",
+  "description": "CTI domain search plugin for Claude Code — searches 300+ security sources and optionally pushes to NotebookLM",
+  "main": "index.js",
+  "bin": {
+    "cti-search": "./index.js"
+  },
+  "scripts": {
+    "test": "node index.js --query 'CVE-2024-21762' --dry-run"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "chalk": "^4.1.2",
+    "commander": "^11.0.0",
+    "dotenv": "^16.3.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

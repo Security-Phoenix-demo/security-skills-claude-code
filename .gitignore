@@ -1,102 +1,25 @@
-# Environment files
-.env
-.env.local
-.env.*.local
-
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-package-lock.json
-pnpm-debug.log*
-
-# macOS
+# OS files
 .DS_Store
-.AppleDouble
-.LSOverride
-
-# Thumbnails
-._*
-
-# Files that might appear in the root of a volume
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-
-# Directories potentially created on remote AFP share
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
-
-# Linux
-*~
-.fuse_hidden*
-.directory
-.Trash-*
-.nfs*
-
-# Windows
 Thumbs.db
-Thumbs.db:encryptable
-ehthumbs.db
-ehthumbs_vista.db
-*.stackdump
-[Dd]esktop.ini
-$RECYCLE.BIN/
-*.cab
-*.msi
-*.msix
-*.msm
-*.msp
-*.lnk
+
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Browser data
+browser_state/
+
+# Auth data
+auth_info.json
 
 # IDE
-.vscode/
 .idea/
+.vscode/
 *.swp
-*.swo
-*~
-.project
-.classpath
-.settings/
-
-# Logs
-logs/
-*.log
-
-# Test coverage
-coverage/
-.nyc_output/
-
-# Build outputs
-dist/
-build/
-*.tgz
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-
-# API keys and secrets (extra safety)
-*secret*
-*key*
-*token*
-credentials.*
-config.json
-
-# Backup files
-*.bak
-*.backup
-*~
-
-# Cache
-.cache/
-*.cache

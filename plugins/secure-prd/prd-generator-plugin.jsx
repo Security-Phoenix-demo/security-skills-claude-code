@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 
 // ─── System prompt embedded from SKILL.md ────────────────────────────────────
-const SYSTEM_PROMPT = `You are the Phoenix Security PRD Generator. You run a 10-role spec pipeline (Context Curator → Scope Cutter → Constraint Distiller → Requirements Engineer → Ambiguity Hunter → Security Engineer → Contract Architect → Verification Matrix → Batch Planner → Final Gate) on a feature description and produce a complete Product Requirements Document.
+const SYSTEM_PROMPT = `You are a security-focused PRD Generator. You run a 10-role spec pipeline (Context Curator → Scope Cutter → Constraint Distiller → Requirements Engineer → Ambiguity Hunter → Security Engineer → Contract Architect → Verification Matrix → Batch Planner → Final Gate) on a feature description and produce a complete Product Requirements Document.
 
 You MUST respond with valid JSON only — no markdown fences, no preamble, no text outside the JSON object.
 
@@ -12,7 +12,7 @@ Output this exact schema:
   "date": "YYYY-MM-DD",
   "problem_statement": "string (2-4 sentences)",
   "context": "string (pipeline Role 01 summary — FACTS + DECISIONS)",
-  "interested_parties": ["@Alfonso Eusebio"],
+  "interested_parties": ["@STAKEHOLDER_NAME"],
   "goals": ["string (max 6)"],
   "non_goals": ["string (max 6)"],
   "active_constraints": [
@@ -73,31 +73,22 @@ function buildPRDMarkdown(d) {
   const lines = [
     `# ${d.feature_name}`,
     ``,
-    `**Owner:** @Francesco Cipollone / @Alfonso Eusebio`,
+    `**Owner:** ${ownerName || "(not set — configure in settings)"}`,
     `**Status:** DRAFT`,
-    `**Information Classification:** INTERNAL *NDA SHARE*`,
+    `**Information Classification:** DRAFT`,
     `**Date:** ${d.date}`,
     `**Version:** 1.0`,
     sep,
     `## Interested Parties`,
-    ...(d.interested_parties || ["@Alfonso Eusebio"]).map(p => `- ${p}`),
+    ...(d.interested_parties || (stakeholders ? stakeholders.split(",").map(s => s.trim()) : ["(configure stakeholders in settings)"])).map(p => `- ${p}`),
     sep,
-    `## Classification Reference`,
-    ``,
-    `| TAG | Action | Sharing |`,
-    `|-----|--------|---------|`,
-    `| N/A | To be classified | No — only who has access |`,
-    `| PUBLIC | Public information | Can be shared externally |`,
-    `| INTERNAL | Internal knowledge | Internal + external under NDA with password |`,
-    `| CONFIDENTIAL | Confidential | No sharing |`,
+    `## Document Status Reference`,
     ``,
     `| Status | When | Action |`,
     `|--------|------|--------|`,
-    `| N/A | Default | No particular state |`,
-    `| APPROVED Vx | Reviewed by senior SP/SPD team | Approved version |`,
     `| DRAFT | Work in progress | Draft document |`,
-    `| BRAINSTORM | Info not reliable | In progress |`,
-    `| DISREGARD | Obsolete | Archived |`,
+    `| APPROVED | Reviewed and approved | Approved version |`,
+    `| ARCHIVED | Obsolete | No longer active |`,
     sep,
     `## 0) Overview`,
     ``,
@@ -227,6 +218,16 @@ function buildCursorPlan(d) {
   ].join("\n");
 }
 
+// ─── Configuration ───────────────────────────────────────────────────────────
+// Customize these values for your organization, or set via environment variables:
+//   PRD_OWNER, PRD_STAKEHOLDERS, PRD_CONFLUENCE_SPACE, PRD_CONFLUENCE_TEMPLATE
+const CONFIG = {
+  owner: typeof process !== "undefined" && process.env?.PRD_OWNER || "",
+  stakeholders: typeof process !== "undefined" && process.env?.PRD_STAKEHOLDERS || "",
+  confluenceSpace: typeof process !== "undefined" && process.env?.PRD_CONFLUENCE_SPACE || "",
+  confluenceTemplate: typeof process !== "undefined" && process.env?.PRD_CONFLUENCE_TEMPLATE || "",
+};
+
 // ─── UI helpers ───────────────────────────────────────────────────────────────
 const C = {
   bg: "#0f1623",
@@ -295,6 +296,8 @@ function ReqChip({ req }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function PRDPlugin() {
   const [projectName, setProjectName] = useState("");
+  const [ownerName, setOwnerName] = useState(CONFIG.owner);
+  const [stakeholders, setStakeholders] = useState(CONFIG.stakeholders);
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [stage, setStage] = useState("");
@@ -324,7 +327,7 @@ export default function PRDPlugin() {
           system: SYSTEM_PROMPT,
           messages: [{
             role: "user",
-            content: `Project name: ${projectName || "Phoenix Security Feature"}\nDate: ${new Date().toISOString().split("T")[0]}\n\nFeature description:\n${description}\n\nRun the full pipeline and return the PRD JSON.`
+            content: `Project name: ${projectName || "New Feature"}\nDate: ${new Date().toISOString().split("T")[0]}\n\nFeature description:\n${description}\n\nRun the full pipeline and return the PRD JSON.`
           }]
         })
       });
@@ -357,22 +360,22 @@ export default function PRDPlugin() {
           max_tokens: 1000,
           system: `You are a Confluence page publisher. Use the available Atlassian MCP tools to:
 1. Call getAccessibleAtlassianResources to get the cloudId
-2. Call searchConfluenceUsingCql with: title = "TEMPLATE PRD" AND space = "SPM" to find the parent page. Fallback parent ID: 1273987073
+2. Call searchConfluenceUsingCql with the configured template title and space key to find the parent page
 3. Call createConfluencePage with the provided content
 Return JSON only: {"success": true/false, "url": "string or null", "page_id": "string or null", "error": "string or null"}`,
           messages: [{
             role: "user",
             content: `Create a Confluence page:
 Title: "${title}"
-Space: SPM
-Parent page: search for "TEMPLATE PRD" in SPM space (fallback ID 1273987073)
-Owner: Francesco Cipollone
+Space: (use the configured Confluence space)
+Parent page: search for the configured PRD template page
+Owner: (use the configured owner)
 Status: DRAFT
 
 Content (Markdown):
 ${buildPRDMarkdown(prd).substring(0, 8000)}`
           }],
-          mcp_servers: [{ type: "url", url: "https://mcp.atlassian.com/v1/mcp", name: "atlassian" }]
+          // Configure your Atlassian MCP server connection in your environment
         })
       });
       const data = await res.json();
@@ -422,12 +425,11 @@ ${buildPRDMarkdown(prd).substring(0, 8000)}`
           <div style={{ width: 32, height: 32, background: `linear-gradient(135deg, ${C.purple}, ${C.blue})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🔥</div>
           <div>
             <div style={{ fontWeight: 700, fontSize: 14, color: C.textPrimary, letterSpacing: "-0.01em" }}>PRD Generator</div>
-            <div style={{ fontSize: 10, color: C.textMuted, letterSpacing: "0.08em" }}>PHOENIX SECURITY · ASPM</div>
+            <div style={{ fontSize: 10, color: C.textMuted, letterSpacing: "0.08em" }}>PRD PIPELINE</div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
-          <Tag label="INTERNAL" color="#fbbf24" bg="#292006" />
-          <Tag label="NDA SHARE" color={C.textMuted} bg={C.surfaceAlt} />
+          <Tag label="DRAFT" color="#fbbf24" bg="#292006" />
         </div>
       </div>
 
@@ -435,20 +437,32 @@ ${buildPRDMarkdown(prd).substring(0, 8000)}`
 
         {/* Input card */}
         <div style={{ background: C.surface, borderRadius: 12, padding: 22, border: `1px solid ${C.border}`, marginBottom: 20 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 14, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
             <div>
               <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Project Name</label>
               <input value={projectName} onChange={e => setProjectName(e.target.value)}
-                placeholder="SPM-VULN-AGE"
+                placeholder="MY-PROJECT"
                 style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 7, padding: "9px 12px", color: C.textPrimary, fontSize: 13, boxSizing: "border-box", outline: "none", fontFamily: "inherit" }} />
             </div>
             <div>
-              <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Feature Description</label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)}
-                placeholder="Describe the feature. E.g: Add SLA breach depth bands to the vulnerability screen — 'Just Outside', 'Outside 1-10d', 'A Lot Outside 10-30d', '>30d'. Teams need a ranking table ordered by outside_count to drive remediation accountability..."
-                rows={4}
-                style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 7, padding: "9px 12px", color: C.textPrimary, fontSize: 12, boxSizing: "border-box", resize: "vertical", outline: "none", fontFamily: "inherit", lineHeight: 1.7 }} />
+              <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Owner</label>
+              <input value={ownerName} onChange={e => setOwnerName(e.target.value)}
+                placeholder="@your-name"
+                style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 7, padding: "9px 12px", color: C.textPrimary, fontSize: 13, boxSizing: "border-box", outline: "none", fontFamily: "inherit" }} />
             </div>
+            <div>
+              <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Stakeholders</label>
+              <input value={stakeholders} onChange={e => setStakeholders(e.target.value)}
+                placeholder="@lead1, @lead2"
+                style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 7, padding: "9px 12px", color: C.textPrimary, fontSize: 13, boxSizing: "border-box", outline: "none", fontFamily: "inherit" }} />
+            </div>
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Feature Description</label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)}
+              placeholder="Describe the feature you want to build. The pipeline will generate a full PRD with security requirements, threat model, API contracts, verification matrix, and delivery plan."
+              rows={4}
+              style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 7, padding: "9px 12px", color: C.textPrimary, fontSize: 12, boxSizing: "border-box", resize: "vertical", outline: "none", fontFamily: "inherit", lineHeight: 1.7 }} />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button onClick={generate} disabled={loading || !description.trim()}
@@ -472,7 +486,7 @@ ${buildPRDMarkdown(prd).substring(0, 8000)}`
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                     <Tag label="DRAFT" color="#fbbf24" bg="#292006" />
                     <Tag label={prd.final_gate} color={prd.final_gate === "SHIP" ? "#6ee7b7" : "#fca5a5"} bg={prd.final_gate === "SHIP" ? "#052e1c" : "#2d0a0a"} />
-                    <span style={{ fontSize: 11, color: C.textMuted }}>@Francesco Cipollone / @Alfonso Eusebio · {prd.date}</span>
+                    <span style={{ fontSize: 11, color: C.textMuted }}>{(prd.interested_parties || []).join(" / ")} · {prd.date}</span>
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

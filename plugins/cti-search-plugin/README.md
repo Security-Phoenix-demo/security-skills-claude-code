@@ -80,10 +80,10 @@ export NOTEBOOKLM_NOTEBOOK_ID=<notebook-id> # optional
 
 ## NotebookLM integration
 
-Requires the [notebooklm-connector](https://github.com/franksec42/claude-code-zero/tree/main/plugins/notebooklm-connector) plugin:
+Requires the [notebooklm-connector](https://github.com/Security-Phoenix-demo/security-skills-claude-code/tree/main/plugins/notebooklm-connector) plugin:
 
 ```bash
-git clone https://github.com/franksec42/claude-code-zero /tmp/ccz
+git clone https://github.com/Security-Phoenix-demo/security-skills-claude-code /tmp/ccz
 cp -r /tmp/ccz/plugins/notebooklm-connector ~/.claude/plugins/
 cd ~/.claude/plugins/notebooklm-connector && npm install
 ```

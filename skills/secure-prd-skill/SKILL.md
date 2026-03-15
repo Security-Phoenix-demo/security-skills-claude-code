@@ -1,12 +1,12 @@
 ---
 name: prd-generator
 description: >
-  Generate a full Phoenix Security PRD (Product Requirements Document) from a plain-language
+  Generate a full security-focused PRD (Product Requirements Document) from a plain-language
   feature description. Use this skill whenever someone wants to create a PRD, product spec,
   feature spec, requirements document, or says things like "write a PRD for", "create a spec for",
   "plan this feature", "document this feature", or "I need a requirements doc".
-  The skill produces: (1) a structured PRD in Phoenix Security template format,
-  (2) a Confluence page pushed to the SPM space via Atlassian MCP (called directly),
+  The skill produces: (1) a structured PRD in a security-focused template format,
+  (2) a Confluence page pushed to your configured space via Atlassian MCP (called directly),
   (3) a cursor-compatible .md plan file for .cursor/plans/,
   (4) a downloadable formatted markdown,
   (5) optionally: Linear/Asana tasks from the batch plan, Slack notification to stakeholders,
@@ -25,7 +25,42 @@ compatibility:
     - bash_tool
 ---
 
-# PRD Generator — Phoenix Security
+# PRD Generator — Security-Focused
+
+## Customization (Required on First Use)
+
+Before generating your first PRD, Claude will ask you to provide the following settings. These are used throughout the pipeline and in all outputs.
+
+| Setting | Description | Example |
+|---------|-------------|---------|
+| **Owner name** | Name(s) shown as PRD owner in all outputs | `@jane.doe / @john.smith` |
+| **Default stakeholders** | Interested parties added to every PRD | `@product-team`, `@security-lead` |
+| **Confluence space key** | Your Atlassian Confluence space for PRD pages | `ENG`, `PRODUCT`, `SEC` |
+| **Confluence template title** | Parent page title to nest PRDs under | `PRD Templates`, `Product Specs` |
+| **Slack channel** | Default channel for PRD notifications (optional) | `#product-specs`, `#security-reviews` |
+| **Email recipients** | Default stakeholder emails for Gmail drafts (optional) | `team@example.com` |
+
+**How to configure:**
+
+1. **Interactive (recommended):** The first time you use this skill, Claude will ask you for these values before generating the PRD. Your answers are used for that session.
+
+2. **Environment variables:** For persistent configuration, set these in your shell profile or `.env`:
+   ```bash
+   export PRD_OWNER="@your-name"
+   export PRD_STAKEHOLDERS="@stakeholder1, @stakeholder2"
+   export PRD_CONFLUENCE_SPACE="YOUR_SPACE_KEY"
+   export PRD_CONFLUENCE_TEMPLATE="Your Template Page Title"
+   export PRD_SLACK_CHANNEL="#your-channel"
+   ```
+
+3. **Per-request override:** Include any of these in your prompt:
+   ```
+   Write a PRD for feature X. Owner: @jane. Space: ENG. Notify #product-specs.
+   ```
+
+> If no configuration is provided, Claude will prompt you before proceeding.
+
+---
 
 ## What This Skill Does
 
@@ -36,7 +71,7 @@ Takes a feature description → runs the 10-role spec pipeline → produces all 
 |--------|-----------------|
 | Full PRD Markdown | `create_file` + `present_files` |
 | `.cursor/plans/` file | `create_file` + `present_files` |
-| Confluence page in SPM space | `Atlassian:createConfluencePage` (called directly) |
+| Confluence page in configured space | `Atlassian:createConfluencePage` (called directly) |
 | Linear issues from batch plan | `Linear` MCP (if user confirms) |
 | Asana tasks from batch plan | `Asana` MCP (if user confirms) |
 | Slack notification | `Slack:slack_send_message` (if channel provided) |
@@ -47,12 +82,21 @@ Takes a feature description → runs the 10-role spec pipeline → produces all 
 
 ## Execution Steps
 
-### Step 1 — Extract Intent
+### Step 1 — Gather Configuration + Extract Intent
 
-From the user's description, extract:
+**1a. Check for customization settings.** Look for:
+- Environment variables (`PRD_OWNER`, `PRD_STAKEHOLDERS`, `PRD_CONFLUENCE_SPACE`, etc.)
+- Values provided in the user's prompt (e.g., "Owner: @jane", "Space: ENG")
+- If neither is available, **ask the user** before proceeding:
+  > "Before I generate the PRD, I need a few details:
+  > 1. Who should be listed as owner? (e.g., @your-name)
+  > 2. Who are the key stakeholders? (e.g., @product-lead, @security-lead)
+  > 3. What Confluence space should I publish to? (e.g., ENG, PRODUCT)
+  > 4. Should I notify a Slack channel or email anyone? (optional)"
+
+**1b. Extract intent** from the user's description:
 - **Feature name** → becomes `PROJECT-NAME` in the Confluence title
 - **Problem statement** — why this exists
-- **Key stakeholders** — who asked, who owns (default: @Francesco Cipollone / @Alfonso Eusebio)
 - **Rough scope** — what's in / out
 - **Which connectors to activate** — infer from context; see heuristics at bottom
 
@@ -81,7 +125,7 @@ Execute each role mentally. Chain outputs:
 
 ### Step 3 — Render PRD
 
-Produce the full document using the Phoenix Security template (see end of this file).
+Produce the full document using the PRD template (see end of this file).
 
 ---
 
@@ -109,16 +153,16 @@ tool: Atlassian:getAccessibleAtlassianResources
 **5b. Find parent page**
 ```
 tool: Atlassian:searchConfluenceUsingCql
-  cql: title = "TEMPLATE PRD" AND space = "SPM"
+  cql: title = "{YOUR_TEMPLATE_TITLE}" AND space = "{YOUR_SPACE_KEY}"
 → capture page ID from first result
-  fallback parent ID if search returns nothing: 1273987073
+  fallback: ask user for parent page ID if search returns nothing
 ```
 
 **5c. Create the PRD page**
 ```
 tool: Atlassian:createConfluencePage
   cloudId: {from 5a}
-  spaceKey: SPM
+  spaceKey: {YOUR_SPACE_KEY}
   title: "{PROJECT-NAME} — {Feature Name}"
   parentId: {from 5b}
   body: {full PRD markdown content}
@@ -160,7 +204,7 @@ tool: Slack:slack_send_message
   channel: #{channel}
   text: |
     📋 *New PRD: {Feature Name}*
-    Status: DRAFT | Owner: @Francesco Cipollone
+    Status: DRAFT | Owner: @{OWNER_NAME}
     Confluence: {page URL from Step 5}
     _{2-sentence summary}_
     Batches: {N} | P0 requirements: {count}
@@ -179,48 +223,38 @@ tool: Notion:notion-create-pages
 #### 6e. Gmail — draft to stakeholders
 ```
 tool: Gmail:gmail_create_draft
-  subject: "[PRD DRAFT] {Feature Name} — Phoenix Security"
+  subject: "[PRD DRAFT] {Feature Name}"
   body: executive summary + Confluence link + P0 requirements list
   (to: leave blank unless user provides emails)
 ```
 
 ---
 
-## Phoenix Security PRD Template
+## PRD Template
 
 ```markdown
 # {FEATURE_NAME}
 
-**Owner:** @Francesco Cipollone / @Alfonso Eusebio
+**Owner:** @{OWNER_NAME}
 **Status:** DRAFT
-**Information Classification:** INTERNAL *NDA SHARE*
 **Date:** {ISO_DATE}
 **Version:** 1.0
 
 ---
 
 ## Interested Parties
-- @Alfonso Eusebio
+- @{STAKEHOLDER_1}
 - {other stakeholders}
 
 ---
 
-## Classification Reference
+## Document Status Reference
 
-| TAG | Action | Sharing |
-|-----|--------|---------|
-| N/A | To be classified | No — only who has access |
-| PUBLIC | Public information | Can be shared externally |
-| INTERNAL | Internal knowledge | Internal + external under NDA with password protection |
-| CONFIDENTIAL | Confidential | No sharing |
-
-| Status TAG | When | Action |
-|-----------|------|--------|
-| N/A | Default | No particular state |
-| APPROVED Vx | Reviewed + approved by senior SP/SPD team | Approved version |
+| Status | When | Action |
+|--------|------|--------|
 | DRAFT | Work in progress | Draft document |
-| BRAINSTORM | Info not reliable yet | In progress, not done |
-| DISREGARD | Obsolete | Archived |
+| APPROVED | Reviewed and approved | Approved version |
+| ARCHIVED | Obsolete | No longer active |
 
 ---
 

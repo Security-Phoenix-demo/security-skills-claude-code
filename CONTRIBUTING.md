@@ -1,6 +1,8 @@
 # Contributing to Security Skills for Claude Code
 
-Thank you for your interest in contributing! This guide will help you add new skills, plugins, or improve existing ones.
+Thank you for your interest in contributing! This repository is maintained by the engineering and security teams at [Phoenix Security](https://phoenix.security) and open to contributions from the global security community.
+
+This guide will help you add new skills, plugins, feature-descriptor roles, or improve existing ones.
 
 ## Table of Contents
 
@@ -8,6 +10,7 @@ Thank you for your interest in contributing! This guide will help you add new sk
 - [Repository Structure](#repository-structure)
 - [Adding a New Skill](#adding-a-new-skill)
 - [Adding a New Plugin](#adding-a-new-plugin)
+- [Adding a Feature-Descriptor Role](#adding-a-feature-descriptor-role)
 - [Documentation Standards](#documentation-standards)
 - [Testing Your Contribution](#testing-your-contribution)
 - [Submitting a Pull Request](#submitting-a-pull-request)
@@ -30,23 +33,44 @@ Thank you for your interest in contributing! This guide will help you add new sk
 
 ```
 security-skills-claude-code/
-├── README.md                 # Main documentation
-├── CONTRIBUTING.md           # This file
-├── .cursor/rules/AGENTS.md   # Agent maintenance guide
-├── skills/                   # Skills directory
-│   └── [skill-name]/
-│       ├── SKILL.md          # Skill specification
-│       ├── README.md         # User documentation
-│       └── install.sh        # Installation script
-└── plugins/                  # Plugins directory
-    └── [plugin-name]/
-        ├── README.md         # Plugin documentation
-        ├── index.js          # CLI entry point
-        ├── mcp-server.js     # MCP server
-        ├── package.json      # Dependencies
-        ├── install.sh        # Installation script
-        └── .env.example      # Environment template
+├── README.md                          # Main documentation — start here
+├── CONTRIBUTING.md                    # This file
+├── MARKETPLACE_INSTALL.md             # Marketplace installation guide
+├── LICENSE                            # MIT License
+│
+├── skills/                            # Instruction-based skills
+│   ├── cti-search-skill/              # CTI domain research
+│   ├── secure-prd-skill/              # Security-focused PRD generation
+│   ├── opengrep-rule-generator/       # SAST rule generation (30+ languages)
+│   ├── opengrep-rule-generator-research/  # CVE/CWE research + rule generation
+│   ├── notebooklm/                    # NotebookLM notebook querying
+│   ├── global-research-notebook-lm/   # Research pipeline + NotebookLM
+│   └── project Documentaion skill/    # Auto project documentation
+│
+├── plugins/                           # Executable tools (MCP + CLI)
+│   ├── cti-search-plugin/             # CTI search engine (Node.js)
+│   └── secure-prd/                    # PRD generator plugin
+│
+└── feature-descriptor/                # Phoenix Pipeline — 12 specialized roles
+    ├── OVERARCHING-phoenix-pipeline-navigator.skill
+    ├── phoenix-context-curator.skill
+    ├── phoenix-scope-cutter.skill
+    ├── phoenix-constraint-distiller.skill
+    ├── phoenix-requirements-engineer.skill
+    ├── phoenix-ambiguity-hunter.skill
+    ├── phoenix-security-engineer.skill
+    ├── phoenix-contract-architect.skill
+    ├── phoenix-verification-matrix.skill
+    ├── phoenix-batch-planner.skill
+    ├── phoenix-final-gate.skill
+    └── phoenix-orchestrator.skill
 ```
+
+### Key Concepts
+
+- **Skills** — instruction-based workflows that guide Claude's behavior (no code execution)
+- **Plugins** — executable tools that run as MCP servers or CLI commands
+- **Feature-Descriptor Roles** — specialized pipeline stages for the Phoenix PRD system
 
 ## Adding a New Skill
 
@@ -502,6 +526,50 @@ Add your plugin to the main `README.md`:
 - **[Your Plugin Name](plugins/your-plugin-name/)** - Brief description
 ```
 
+## Adding a Feature-Descriptor Role
+
+Feature-descriptor roles are specialized stages in the Phoenix Pipeline. Each role is a `.skill` file in the `feature-descriptor/` directory.
+
+### Step 1: Create the Skill File
+
+Create `feature-descriptor/phoenix-your-role.skill` following the naming convention `phoenix-<role-name>.skill`.
+
+### Step 2: Define the Role
+
+```markdown
+---
+name: phoenix-your-role
+description: >
+  One-line description of what this pipeline role does and when it activates.
+---
+
+## Role: Your Role Name
+
+Brief description of the role's purpose within the pipeline.
+
+## Inputs
+- What this role receives from upstream roles
+
+## Process
+1. Step one
+2. Step two
+3. Step three
+
+## Outputs
+- What this role produces for downstream roles
+
+## Integration
+- How this role fits into the Phoenix Pipeline sequence
+```
+
+### Step 3: Update Documentation
+
+1. Add the role to the Phoenix Pipeline table in `README.md`
+2. Reference it in the pipeline flow diagram
+3. Update the `OVERARCHING-phoenix-pipeline-navigator.skill` if the role changes the pipeline sequence
+
+---
+
 ## Documentation Standards
 
 ### Required Documentation
@@ -681,4 +749,4 @@ By contributing, you agree that your contributions will be licensed under the sa
 
 ---
 
-Thank you for contributing to Security Skills for Claude Code! 🎉
+Thank you for contributing to Security Skills for Claude Code! Built and maintained by [Phoenix Security](https://phoenix.security) for the global security community.

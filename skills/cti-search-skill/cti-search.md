@@ -45,7 +45,7 @@ The tier map (domain → authority score) is at:
 ### NotebookLM push (if --notebooklm):
 ```bash
 # Check plugin
-ls ~/.claude/plugins/notebooklm-connector/ 2>/dev/null || echo "Plugin not installed — see https://github.com/franksec42/claude-code-zero/tree/main/plugins/notebooklm-connector"
+ls ~/.claude/plugins/notebooklm-connector/ 2>/dev/null || echo "Plugin not installed — see https://github.com/YOUR_USERNAME/claude-code-zero/tree/main/plugins/notebooklm-connector"
 
 # Push sources
 NOTEBOOK_ID="${NOTEBOOKLM_NOTEBOOK_ID:-<from flag>}"

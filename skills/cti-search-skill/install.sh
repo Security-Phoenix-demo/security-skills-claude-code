@@ -40,7 +40,7 @@ if [ -d "$NLM_PLUGIN" ]; then
 else
   echo "      ⚠ NotebookLM connector NOT installed."
   echo "        To enable --notebooklm flag, install it:"
-  echo "        git clone https://github.com/franksec42/claude-code-zero \\"
+  echo "        git clone https://github.com/YOUR_USERNAME/claude-code-zero \\"
   echo "          /tmp/claude-code-zero"
   echo "        cp -r /tmp/claude-code-zero/plugins/notebooklm-connector \\"
   echo "          ~/.claude/plugins/"

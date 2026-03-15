@@ -19,7 +19,7 @@ bash cti-domain-research/scripts/install.sh
 export NOTEBOOKLM_NOTEBOOK_ID=<your-id>
 
 # Install the connector plugin if not already there
-git clone https://github.com/franksec42/claude-code-zero /tmp/ccz
+git clone https://github.com/YOUR_USERNAME/claude-code-zero /tmp/ccz
 cp -r /tmp/ccz/plugins/notebooklm-connector ~/.claude/plugins/
 cd ~/.claude/plugins/notebooklm-connector && npm install
 
@@ -28,4 +28,4 @@ bash/cti-search CVE-2024-21762
 /cti-search LockBit ransomware --full --since 30
 /cti-search ALPHV BlackCat --notebooklm
 /cti-search supply chain npm --count 20 --tier 2 --notebooklm --notebook-id abc123
-Tier routing logic: CVEs → T1 (CISA/NVD/MSRC) first; threat actors/malware → T2 (Unit42/Talos/Securelist); news/situational → T3 (Bleeping/Krebs/TheRecord); PoC/IOCs → T4 (any.run/VulnCheck/GreyNoise). The --notebooklm flag pipes all found URLs directly into your notebook via the franksec42 connector.
+Tier routing logic: CVEs → T1 (CISA/NVD/MSRC) first; threat actors/malware → T2 (Unit42/Talos/Securelist); news/situational → T3 (Bleeping/Krebs/TheRecord); PoC/IOCs → T4 (any.run/VulnCheck/GreyNoise). The --notebooklm flag pipes all found URLs directly into your notebook via the notebooklm-connector plugin.

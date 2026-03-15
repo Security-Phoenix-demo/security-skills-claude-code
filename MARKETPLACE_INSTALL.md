@@ -47,14 +47,71 @@ claude-code install plugin:cti-search-plugin
 - **Dependencies**: None (pure instruction-based)
 - **Install Command**: `claude-code install skill:cti-domain-research`
 
+#### Secure PRD Generator
+- **Marketplace ID**: `secure-prd-generator`
+- **Description**: Generate security-focused Product Requirements Documents with threat modeling
+- **Use Cases**: PRD creation, security requirements, threat model generation
+- **Dependencies**: None (pure instruction-based; optional MCP integrations for Confluence, Linear, Slack)
+- **Install Command**: `claude-code install skill:secure-prd-generator`
+
+#### OpenGrep Rule Generator
+- **Marketplace ID**: `opengrep-rule-generator`
+- **Description**: Generate opengrep/semgrep SAST rules for vulnerability detection across 30+ languages
+- **Use Cases**: SAST rule creation, vulnerability pattern detection, OWASP Top 10 coverage, code security scanning
+- **Dependencies**: None (pure instruction-based; opengrep or semgrep CLI needed to run generated rules)
+- **Install Command**: `claude-code install skill:opengrep-rule-generator`
+
+#### OpenGrep Rule Generator Research
+- **Marketplace ID**: `opengrep-rule-generator-research`
+- **Description**: Research CVEs/CWEs via web search, then generate targeted detection rules from findings
+- **Use Cases**: CVE-driven rule generation, vulnerability research, detection gap analysis, security coverage mapping
+- **Dependencies**: None (pure instruction-based; uses web search and web fetch tools for research)
+- **Install Command**: `claude-code install skill:opengrep-rule-generator-research`
+
+#### NotebookLM Connector
+- **Marketplace ID**: `notebooklm-connector`
+- **Description**: Query Google NotebookLM notebooks from Claude Code for citation-backed answers
+- **Use Cases**: Source-grounded research Q&A, security documentation querying, notebook library management
+- **Dependencies**: Chrome/Edge browser, "Claude in Chrome" extension, Google account with NotebookLM access
+- **Install Command**: `claude-code install skill:notebooklm-connector`
+
+#### Global Research Pipeline
+- **Marketplace ID**: `global-research-pipeline`
+- **Description**: Systematic research pipeline with web search and NotebookLM integration
+- **Use Cases**: Deep research, source collection, NotebookLM ingestion
+- **Dependencies**: Python 3.8+ (for research modules), NotebookLM connector
+- **Install Command**: `claude-code install skill:global-research-pipeline`
+
+#### Project Documentation
+- **Marketplace ID**: `project-documentation`
+- **Description**: Auto-generate comprehensive project documentation from your codebase
+- **Use Cases**: Project documentation, architecture summaries, onboarding docs
+- **Dependencies**: None (pure instruction-based)
+- **Install Command**: `claude-code install skill:project-documentation`
+
 ### Plugins
 
 #### CTI Search Plugin
 - **Marketplace ID**: `cti-search-plugin`
-- **Description**: MCP server and CLI for executing CTI searches
+- **Description**: MCP server and CLI for executing CTI searches across 595+ domains
 - **Use Cases**: Automated threat intelligence gathering, NotebookLM integration
 - **Dependencies**: Node.js 18+, Brave Search API or SerpAPI
 - **Install Command**: `claude-code install plugin:cti-search-plugin`
+
+#### Secure PRD Plugin
+- **Marketplace ID**: `secure-prd-plugin`
+- **Description**: PRD generator with Confluence, Linear, Asana, Slack, Notion, and Gmail integrations
+- **Use Cases**: Automated PRD publishing, task creation, stakeholder notifications
+- **Dependencies**: Node.js 18+, MCP integrations for target platforms
+- **Install Command**: `claude-code install plugin:secure-prd-plugin`
+
+### Feature Descriptor — Phoenix Pipeline
+- **Marketplace ID**: `phoenix-pipeline`
+- **Description**: 12-role specification system for security-aware product requirements
+- **Use Cases**: Feature specification, security-first PRDs, RFC 2119 requirements
+- **Dependencies**: None (pure instruction-based)
+- **Install Command**: `claude-code install skill:phoenix-pipeline`
+- **Details**: See [`feature-descriptor/`](feature-descriptor/) for all 12 role definitions
 
 ## Post-Installation Configuration
 
@@ -123,7 +180,7 @@ To enable automatic pushing of research to NotebookLM:
 
 1. **Install NotebookLM Connector**:
    ```bash
-   git clone https://github.com/franksec42/claude-code-zero /tmp/ccz
+   git clone https://github.com/YOUR_USERNAME/claude-code-zero /tmp/ccz
    cp -r /tmp/ccz/plugins/notebooklm-connector ~/.claude/plugins/
    cd ~/.claude/plugins/notebooklm-connector && npm install
    ```

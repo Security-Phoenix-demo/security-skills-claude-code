@@ -251,7 +251,7 @@ async function pushToNotebookLM(notebookId, results, query) {
   if (!fs.existsSync(pluginPath)) {
     console.error(
       "\n⚠ NotebookLM connector not installed.\n" +
-      "  Install: git clone https://github.com/franksec42/claude-code-zero /tmp/ccz\n" +
+      "  Install: git clone https://github.com/Security-Phoenix-demo/security-skills-claude-code /tmp/ccz\n" +
       "           cp -r /tmp/ccz/plugins/notebooklm-connector ~/.claude/plugins/\n" +
       "           cd ~/.claude/plugins/notebooklm-connector && npm install\n\n" +
       "Fallback: source URLs for manual import below:\n"

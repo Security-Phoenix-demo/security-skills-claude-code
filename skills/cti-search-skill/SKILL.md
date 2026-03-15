@@ -19,6 +19,47 @@ NotebookLM ingestion.
 
 ---
 
+## Customization
+
+Configure these settings to personalize your CTI research workflow. All are optional — the skill works with sensible defaults.
+
+| Setting | Description | Default | How to Set |
+|---------|-------------|---------|------------|
+| **Search provider** | Which search API to use | Brave Search | `SEARCH_PROVIDER=brave` in `.env` |
+| **Brave API key** | Your Brave Search API key | — (required) | `BRAVE_SEARCH_API_KEY=...` in `.env` |
+| **SerpAPI key** | Alternative search provider | — | `SERPAPI_KEY=...` in `.env` |
+| **Google CSE key + ID** | Alternative search provider | — | `GOOGLE_CSE_KEY=...` + `GOOGLE_CSE_ID=...` in `.env` |
+| **NotebookLM notebook ID** | Target notebook for `--notebooklm` flag | — | `NOTEBOOKLM_NOTEBOOK_ID=...` in `.env` or `--notebook-id` flag |
+| **Default result count** | Results per tier | 10 | `--count N` flag per query |
+| **Default recency** | How far back to search | 90 days | `--since DAYS` flag per query |
+| **Custom domains** | Add your own security sources | 595 built-in | Edit `data/domains.txt` and `data/tier-map.json` |
+
+**Setup steps:**
+
+1. Copy `.env.example` to `.env` in the plugin directory
+2. Add your search API key (Brave recommended — 2,000 free requests/month)
+3. Optionally set your NotebookLM notebook ID
+4. Restart Claude Code
+
+```bash
+cd ~/.claude/plugins/cti-search-plugin
+cp .env.example .env
+# Edit .env with your API keys
+```
+
+**Adding custom domains:**
+
+```bash
+# Add a domain (one per line)
+echo "your-security-blog.com" >> data/domains.txt
+
+# Add tier mapping
+# Edit data/tier-map.json and add:
+# "your-security-blog.com": { "tier": 3, "authority": 70 }
+```
+
+---
+
 ## Workflow
 
 ```
@@ -141,7 +182,7 @@ Return raw JSON array of result objects (schema above).
 When `--notebooklm` flag is set, use the NotebookLM connector plugin to ingest findings.
 
 **Plugin location (Claude Code):** `~/.claude/plugins/notebooklm-connector/`  
-**Plugin repo:** https://github.com/franksec42/claude-code-zero/tree/main/plugins/notebooklm-connector
+**Plugin repo:** https://github.com/Security-Phoenix-demo/security-skills-claude-code/tree/main/plugins/notebooklm-connector
 
 ### Connector flow:
 

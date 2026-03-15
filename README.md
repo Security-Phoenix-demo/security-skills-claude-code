@@ -12,6 +12,9 @@
 
 ## Table of Contents
 
+![Overview-Repo](images/Phoenix-Skills-Overview-2.jpg)
+
+
 - [What Is This Repository?](#what-is-this-repository)
 - [What's Included](#whats-included)
   - [Skills](#skills)
@@ -65,6 +68,9 @@ It was built by the **engineering and security engineering teams at [Phoenix Sec
 ---
 
 ## What's Included
+
+![Overview-Repo-Detailed](images/Phoenix-Skills-Overview-1.jpg)
+
 
 ### Skills
 
@@ -274,6 +280,9 @@ Generate full Product Requirements Documents with built-in security consideratio
 
 **Folder:** [`skills/opengrep-rule-generator/`](skills/opengrep-rule-generator/)
 
+![Generate Automatically Opengrep Rules](images/OpenGrep-Rule-Auto-Generaiton.jpg)
+
+
 Generate valid opengrep/semgrep SAST (Static Application Security Testing) rules for vulnerability detection. Supports **30+ programming languages** including Python, JavaScript, TypeScript, Java, Go, Ruby, PHP, C#, Rust, Terraform/HCL, and Solidity.
 
 **Two workflows:**
@@ -305,6 +314,9 @@ Detect hardcoded AWS credentials in any language
 ### 4. OpenGrep Rule Generator Research
 
 **Folder:** [`skills/opengrep-rule-generator-research/`](skills/opengrep-rule-generator-research/)
+
+![Generate Automatically Opengrep Rules and research vulnerabilities](images/Opengrep-Rules-Research.jpg)
+
 
 Extended version of the OpenGrep Rule Generator with a **vulnerability research phase**. Uses web search and web fetch to research CVEs and CWEs before generating detection rules — producing better, more targeted rules grounded in real vulnerability data.
 

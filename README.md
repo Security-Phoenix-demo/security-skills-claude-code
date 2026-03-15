@@ -44,12 +44,6 @@
 
 ## Overview
 
-![Research, Verify, Detect: Structured Threat Intelligence for Claude Code](images/cti-skills.jpg)
-
-![Shift Security Left at the PRD Stage](images/prd-pipeline.jpg)
-
-![Project Documentation: Turning Codebases into Living Documentation](images/project-documentation.jpg)
-
 ---
 
 ## What Is This Repository?
@@ -232,6 +226,10 @@ security-skills-claude-code/
 
 Search 300+ curated security domains for threat intelligence. The skill routes queries intelligently across four domain tiers based on query type.
 
+
+
+![Research, Verify, Detect: Structured Threat Intelligence for Claude Code](images/cti-skills.jpg)
+
 **Example prompts:**
 ```
 Search for threat intelligence on CVE-2024-21762
@@ -240,6 +238,7 @@ What are security vendors saying about ALPHV?
 Research MITRE T1190 exploitation techniques
 Collect CTI on supply chain attacks in npm
 ```
+
 
 **What it does:**
 1. Classifies your query (CVE, threat actor, malware, general)
@@ -256,6 +255,10 @@ Collect CTI on supply chain attacks in npm
 **Folder:** [`skills/secure-prd-skill/`](skills/secure-prd-skill/)
 
 Generate full Product Requirements Documents with built-in security considerations. Uses a 10-role specification pipeline (the Phoenix Pipeline) to produce rigorous, RFC 2119-compliant requirements with threat models.
+
+
+![Shift Security Left at the PRD Stage](images/prd-pipeline.jpg)
+
 
 **Outputs:**
 - Full PRD markdown document
@@ -377,6 +380,10 @@ A systematic research pipeline that combines web search and YouTube research, th
 ### 7. Project Documentation
 
 **Folder:** [`skills/project Documentaion skill/`](skills/project%20Documentaion%20skill/)
+
+
+![Project Documentation: Turning Codebases into Living Documentation](images/project-documentation.jpg)
+
 
 Automatically generate comprehensive project documentation from your codebase. Available in two variants:
 

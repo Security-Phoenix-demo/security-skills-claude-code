@@ -22,15 +22,16 @@
   - [Feature Descriptor — Phoenix Pipeline](#feature-descriptor--phoenix-pipeline)
 - [Quick Start](#quick-start)
 - [Repository Structure](#repository-structure)
-- [Skills Reference](#skills-reference)
-  - [CTI Domain Research](#1-cti-domain-research)
-  - [Secure PRD Generator](#2-secure-prd-generator)
-  - [OpenGrep Rule Generator](#3-opengrep-rule-generator)
-  - [OpenGrep Rule Generator Research](#4-opengrep-rule-generator-research)
-  - [NotebookLM Connector](#5-notebooklm-connector)
-  - [Global Research Pipeline](#6-global-research-pipeline)
-  - [Project Documentation](#7-project-documentation)
-  - [Security Assessment Suite](#8-security-assessment-suite)
+- [Research & Intelligence Skills](#research--intelligence-skills)
+  - [1. CTI Domain Research](#1-cti-domain-research)
+  - [2. NotebookLM Connector](#2-notebooklm-connector)
+  - [3. Global Research Pipeline](#3-global-research-pipeline)
+- [Security Generation & Remediation Skills](#security-generation--remediation-skills)
+  - [1. Secure PRD Generator](#1-secure-prd-generator)
+  - [2. OpenGrep Rule Generator](#2-opengrep-rule-generator)
+  - [3. OpenGrep Rule Generator Research](#3-opengrep-rule-generator-research)
+  - [4. Project Documentation](#4-project-documentation)
+  - [5. Security Assessment Suite](#5-security-assessment-suite)
 - [Plugins Reference](#plugins-reference)
   - [CTI Search Plugin](#1-cti-search-plugin)
   - [Secure PRD Plugin](#2-secure-prd-plugin)
@@ -229,7 +230,9 @@ security-skills-claude-code/
 
 ---
 
-## Skills Reference
+## Research & Intelligence Skills
+
+Skills that gather, organize, and verify external knowledge — threat intel, vendor docs, vulnerability research — and feed it into your workflow with citation-backed accuracy.
 
 ### 1. CTI Domain Research — Automated Threat Intelligence Gathering
 
@@ -262,101 +265,7 @@ Collect CTI on supply chain attacks targeting npm packages
 
 ---
 
-### 2. Secure PRD Generator — Shift Security Left to the Requirements Stage
-
-**Folder:** [`skills/secure-prd-skill/`](skills/secure-prd-skill/)
-
-![Shift Security Left at the PRD Stage](images/prd-pipeline.jpg)
-
-Traditional PRDs focus exclusively on features and leave security as an afterthought — discovered too late in testing, patched as a hotfix, or never addressed at all. The **Secure PRD Generator** integrates security into the requirements phase itself, running every feature description through a **10-role specification pipeline** that produces RFC 2119-compliant requirements with STRIDE threat models, abuse cases, and verification proof paths built in from the start.
-
-Each role in the pipeline handles a specialized aspect of specification: the **Context Curator** cleanses and structures the input; the **Ambiguity Hunter** flags vague instructions that cause downstream design flaws; the **Requirements Engineer** formalizes requirements with MUST/SHOULD/MAY levels and structured IDs (R-FUNC-001, R-SEC-001); the **Security Engineer** develops comprehensive threat models and abuse cases alongside the functional requirements; and the **Verification Matrix** creates concrete proof paths for every MUST-level requirement to ensure full testability.
-
-The skill integrates directly with your team's existing tools. It publishes the PRD to **Atlassian Confluence** via MCP, converts requirements into **Linear or Asana** tasks automatically, sends **Slack** notifications to stakeholders, mirrors documents to **Notion**, and drafts summary emails via **Gmail**. Every output follows a consistent security-first template with priority tags (P0/P1/P2) and traceable requirement chains.
-
-**What it produces:**
-- Security-first PRD in structured markdown with RFC 2119 requirement levels
-- STRIDE threat model with identified assets, actors, entry points, and trust boundaries
-- Cursor-compatible implementation plan for `.cursor/plans/`
-- Confluence page published to your configured space
-- Automated task distribution to Linear or Asana from the batch plan
-- Stakeholder notifications via Slack and Gmail
-
-**Example prompts:**
-```
-Write a PRD for a user authentication system with OAuth2 and MFA
-Create a security-focused spec for a payment processing API
-Plan this feature: real-time webhook delivery system. Owner: @jane. Space: ENG.
-Generate requirements for a file upload service with virus scanning
-```
-
----
-
-### 3. OpenGrep Rule Generator — AI-Powered SAST Rule Creation
-
-**Folder:** [`skills/opengrep-rule-generator/`](skills/opengrep-rule-generator/)
-
-![Generate Automatically Opengrep Rules](images/OpenGrep-Rule-Auto-Generaiton.jpg)
-
-Writing effective SAST rules is slow, error-prone, and requires deep knowledge of both the vulnerability class and the rule engine's syntax. The **OpenGrep Rule Generator** automates the entire process — from vulnerability description to validated, production-ready opengrep/semgrep YAML rules with test cases, CWE metadata, and false positive reduction patterns.
-
-The skill supports **30+ programming languages** including Python, JavaScript, TypeScript, Java, Go, Ruby, PHP, C#, Rust, Kotlin, Swift, Terraform/HCL, and Solidity. It generates two types of rules: **Search rules** for structural pattern matching (finding dangerous function calls, insecure configurations, hardcoded secrets) and **Taint rules** for data flow analysis (tracing untrusted input from sources through propagators to dangerous sinks, with sanitizer awareness).
-
-Every generated rule includes built-in false positive reduction using `pattern-not`, `pattern-not-inside`, and `metavariable-regex` patterns. The skill also generates companion test files with clearly marked true positive and true negative cases so you can validate detection accuracy before deploying to your CI pipeline.
-
-**Two workflows:**
-- **Guided Discovery** — interactive Q&A where Claude asks about your codebase, frameworks, and threat model before generating targeted rules
-- **Vulnerability-Driven** — provide a CVE, CWE, or OWASP category and get rules generated automatically with appropriate detection patterns
-
-**Example prompts:**
-```
-Create an opengrep rule to detect SQL injection in Python Flask apps
-Generate a taint analysis rule for XSS in React components
-Write semgrep rules for OWASP Top 10 in Java Spring Boot
-Detect hardcoded AWS credentials in any language
-Build a rule to catch insecure deserialization in Python pickle usage
-Generate Terraform rules to detect publicly exposed S3 buckets
-```
-
-**Key files:**
-- `SKILL.md` — full skill specification with guided and vulnerability-driven workflows
-- `RULES_SYNTAX.md` — comprehensive opengrep/semgrep syntax reference (patterns, operators, metavariables, taint mode)
-- `OPENGREP_RULE_GENERATOR_PROMPT.md` — optimized system prompt for high-quality rule generation
-
----
-
-### 4. OpenGrep Rule Generator Research — Vulnerability-First Detection Engineering
-
-**Folder:** [`skills/opengrep-rule-generator-research/`](skills/opengrep-rule-generator-research/)
-
-![Generate Automatically Opengrep Rules and research vulnerabilities](images/Opengrep-Rules-Research.jpg)
-
-The standard OpenGrep Rule Generator works great when you already know the pattern you want to detect. But what if you're starting from a CVE advisory, a vulnerability class, or a vague report about a new attack technique? The **Research** variant adds a **4-phase vulnerability research pipeline** that uses web search and web fetch to study the vulnerability in depth before generating detection rules — producing significantly better, more targeted rules that are grounded in real-world exploit data.
-
-This is the difference between writing a rule from a description and writing a rule from understanding. The research phase studies official advisories, analyzes proof-of-concept exploits, maps language-specific attack surfaces (sources, sinks, sanitizers, propagators), and reviews existing semgrep/opengrep rules to identify coverage gaps. The resulting rules are inherently linked to real exploit behavior, not abstract patterns.
-
-**Research pipeline (4 phases):**
-1. **Vulnerability deep dive** — search CVE/CWE databases, fetch CISA/NVD/MSRC advisories, study proof-of-concept exploits to understand the actual attack mechanics
-2. **Attack surface mapping** — identify specific sources, sinks, and certifiers for the target programming language based on the researched exploit behavior
-3. **Existing detection gap analysis** — search for existing semgrep/opengrep rules, analyze what they catch and miss, identify coverage blind spots
-4. **Grounded rule generation** — generate SAST rules that are directly linked to the researched exploit patterns, with a research summary embedded in each rule file
-
-**Example prompts:**
-```
-Research CVE-2024-21762 and create detection rules for it
-Generate opengrep rules for CWE-89 (SQL Injection) in Python with full research
-Investigate Log4Shell and build comprehensive detection coverage for Java
-Research SSRF vulnerabilities in Node.js and create taint analysis rules
-Study the MOVEit Transfer vulnerability and write detection rules
-```
-
-**When to use this vs. the standard OpenGrep Rule Generator:**
-- Use **OpenGrep Rule Generator** when you already know the exact code pattern you want to detect
-- Use **OpenGrep Rule Generator Research** when you're starting from a CVE ID, CWE class, or vulnerability description and need to understand the attack before building detection
-
----
-
-### 5. NotebookLM Connector — Source-Grounded AI Research with Zero Hallucinations
+### 2. NotebookLM Connector — Source-Grounded AI Research with Zero Hallucinations
 
 **Folder:** [`skills/notebooklm/`](skills/notebooklm/)
 
@@ -392,7 +301,7 @@ Search my notebooks for information about OAuth2 token rotation
 
 ---
 
-### 6. Global Research Pipeline — Automated Intelligence Collection and Ingestion
+### 3. Global Research Pipeline — Automated Intelligence Collection and Ingestion
 
 **Folder:** [`skills/global-research-notebook-lm/`](skills/global-research-notebook-lm/)
 
@@ -418,7 +327,107 @@ Research cloud security misconfigurations across AWS, GCP, and Azure
 
 ---
 
-### 7. Project Documentation — Turn Any Codebase into Living Documentation
+## Security Generation & Remediation Skills
+
+![Phoenix Security Skill Detailed Overview — security generation and remediation skills for Claude Code](images/PHOENIX%20SECURITY%20SKILL%20DETAILED%20OVERVIEW.jpg)
+
+A focused set of skills that **generate, audit, or remediate security issues across the SDLC** — shifting security left into requirements, generating SAST detection rules from CVE/CWE research, documenting security-relevant architecture, and running diff-time / pre-merge / pre-release / design-time AppSec workflows on the codebase. Together they cover the full lifecycle from spec to ship.
+
+### 1. Secure PRD Generator — Shift Security Left to the Requirements Stage
+
+**Folder:** [`skills/secure-prd-skill/`](skills/secure-prd-skill/)
+
+![Shift Security Left at the PRD Stage](images/prd-pipeline.jpg)
+
+Traditional PRDs focus exclusively on features and leave security as an afterthought — discovered too late in testing, patched as a hotfix, or never addressed at all. The **Secure PRD Generator** integrates security into the requirements phase itself, running every feature description through a **10-role specification pipeline** that produces RFC 2119-compliant requirements with STRIDE threat models, abuse cases, and verification proof paths built in from the start.
+
+Each role in the pipeline handles a specialized aspect of specification: the **Context Curator** cleanses and structures the input; the **Ambiguity Hunter** flags vague instructions that cause downstream design flaws; the **Requirements Engineer** formalizes requirements with MUST/SHOULD/MAY levels and structured IDs (R-FUNC-001, R-SEC-001); the **Security Engineer** develops comprehensive threat models and abuse cases alongside the functional requirements; and the **Verification Matrix** creates concrete proof paths for every MUST-level requirement to ensure full testability.
+
+The skill integrates directly with your team's existing tools. It publishes the PRD to **Atlassian Confluence** via MCP, converts requirements into **Linear or Asana** tasks automatically, sends **Slack** notifications to stakeholders, mirrors documents to **Notion**, and drafts summary emails via **Gmail**. Every output follows a consistent security-first template with priority tags (P0/P1/P2) and traceable requirement chains.
+
+**What it produces:**
+- Security-first PRD in structured markdown with RFC 2119 requirement levels
+- STRIDE threat model with identified assets, actors, entry points, and trust boundaries
+- Cursor-compatible implementation plan for `.cursor/plans/`
+- Confluence page published to your configured space
+- Automated task distribution to Linear or Asana from the batch plan
+- Stakeholder notifications via Slack and Gmail
+
+**Example prompts:**
+```
+Write a PRD for a user authentication system with OAuth2 and MFA
+Create a security-focused spec for a payment processing API
+Plan this feature: real-time webhook delivery system. Owner: @jane. Space: ENG.
+Generate requirements for a file upload service with virus scanning
+```
+
+---
+
+### 2. OpenGrep Rule Generator — AI-Powered SAST Rule Creation
+
+**Folder:** [`skills/opengrep-rule-generator/`](skills/opengrep-rule-generator/)
+
+![Generate Automatically Opengrep Rules](images/OpenGrep-Rule-Auto-Generaiton.jpg)
+
+Writing effective SAST rules is slow, error-prone, and requires deep knowledge of both the vulnerability class and the rule engine's syntax. The **OpenGrep Rule Generator** automates the entire process — from vulnerability description to validated, production-ready opengrep/semgrep YAML rules with test cases, CWE metadata, and false positive reduction patterns.
+
+The skill supports **30+ programming languages** including Python, JavaScript, TypeScript, Java, Go, Ruby, PHP, C#, Rust, Kotlin, Swift, Terraform/HCL, and Solidity. It generates two types of rules: **Search rules** for structural pattern matching (finding dangerous function calls, insecure configurations, hardcoded secrets) and **Taint rules** for data flow analysis (tracing untrusted input from sources through propagators to dangerous sinks, with sanitizer awareness).
+
+Every generated rule includes built-in false positive reduction using `pattern-not`, `pattern-not-inside`, and `metavariable-regex` patterns. The skill also generates companion test files with clearly marked true positive and true negative cases so you can validate detection accuracy before deploying to your CI pipeline.
+
+**Two workflows:**
+- **Guided Discovery** — interactive Q&A where Claude asks about your codebase, frameworks, and threat model before generating targeted rules
+- **Vulnerability-Driven** — provide a CVE, CWE, or OWASP category and get rules generated automatically with appropriate detection patterns
+
+**Example prompts:**
+```
+Create an opengrep rule to detect SQL injection in Python Flask apps
+Generate a taint analysis rule for XSS in React components
+Write semgrep rules for OWASP Top 10 in Java Spring Boot
+Detect hardcoded AWS credentials in any language
+Build a rule to catch insecure deserialization in Python pickle usage
+Generate Terraform rules to detect publicly exposed S3 buckets
+```
+
+**Key files:**
+- `SKILL.md` — full skill specification with guided and vulnerability-driven workflows
+- `RULES_SYNTAX.md` — comprehensive opengrep/semgrep syntax reference (patterns, operators, metavariables, taint mode)
+- `OPENGREP_RULE_GENERATOR_PROMPT.md` — optimized system prompt for high-quality rule generation
+
+---
+
+### 3. OpenGrep Rule Generator Research — Vulnerability-First Detection Engineering
+
+**Folder:** [`skills/opengrep-rule-generator-research/`](skills/opengrep-rule-generator-research/)
+
+![Generate Automatically Opengrep Rules and research vulnerabilities](images/Opengrep-Rules-Research.jpg)
+
+The standard OpenGrep Rule Generator works great when you already know the pattern you want to detect. But what if you're starting from a CVE advisory, a vulnerability class, or a vague report about a new attack technique? The **Research** variant adds a **4-phase vulnerability research pipeline** that uses web search and web fetch to study the vulnerability in depth before generating detection rules — producing significantly better, more targeted rules that are grounded in real-world exploit data.
+
+This is the difference between writing a rule from a description and writing a rule from understanding. The research phase studies official advisories, analyzes proof-of-concept exploits, maps language-specific attack surfaces (sources, sinks, sanitizers, propagators), and reviews existing semgrep/opengrep rules to identify coverage gaps. The resulting rules are inherently linked to real exploit behavior, not abstract patterns.
+
+**Research pipeline (4 phases):**
+1. **Vulnerability deep dive** — search CVE/CWE databases, fetch CISA/NVD/MSRC advisories, study proof-of-concept exploits to understand the actual attack mechanics
+2. **Attack surface mapping** — identify specific sources, sinks, and certifiers for the target programming language based on the researched exploit behavior
+3. **Existing detection gap analysis** — search for existing semgrep/opengrep rules, analyze what they catch and miss, identify coverage blind spots
+4. **Grounded rule generation** — generate SAST rules that are directly linked to the researched exploit patterns, with a research summary embedded in each rule file
+
+**Example prompts:**
+```
+Research CVE-2024-21762 and create detection rules for it
+Generate opengrep rules for CWE-89 (SQL Injection) in Python with full research
+Investigate Log4Shell and build comprehensive detection coverage for Java
+Research SSRF vulnerabilities in Node.js and create taint analysis rules
+Study the MOVEit Transfer vulnerability and write detection rules
+```
+
+**When to use this vs. the standard OpenGrep Rule Generator:**
+- Use **OpenGrep Rule Generator** when you already know the exact code pattern you want to detect
+- Use **OpenGrep Rule Generator Research** when you're starting from a CVE ID, CWE class, or vulnerability description and need to understand the attack before building detection
+
+---
+
+### 4. Project Documentation — Turn Any Codebase into Living Documentation
 
 **Folder:** [`skills/project Documentaion skill/`](skills/project%20Documentaion%20skill/)
 
@@ -456,7 +465,7 @@ Set up self-healing documentation with GitHub Actions CI
 
 ---
 
-### 8. Security Assessment Suite — Four AppSec Skills + Active Hooks
+### 5. Security Assessment Suite — Four AppSec Skills + Active Hooks
 
 ![Security Assessment Suite — four AppSec skills and active hooks for Claude Code](images/Security-automation-agents.jpg)
 

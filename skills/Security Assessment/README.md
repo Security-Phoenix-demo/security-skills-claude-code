@@ -3,7 +3,7 @@
 Most security review still happens at the wrong end of the cycle. The diff is fat, the deadline is closer than you'd like, and the reviewer (you, or someone you've roped in) is staring at three hundred files trying to remember which ones touched auth. By that point, anything beyond "looks fine" is a stretch.
 The Security Assessment Skills Suite is a set of four commands that move that work earlier. Not all the way to the left — there's no shifting your way out of judgement — but earlier enough that the review fits the change instead of the calendar. It plugs into Claude Code, Windsurf, and Codex, and on Claude Code it ships three hooks that catch obvious things before the human even sees the diff.
 
-![Security Assessment Suite — four AppSec skills and active hooks for Claude Code](images/Security-automation-agents.jpg)
+![Security Assessment Suite — four AppSec skills and active hooks for Claude Code](../../images/Security-automation-agents.jpg)
 This repo contains: 
 A bundle of four complementary security skills plus parameterized testing runbooks.
 Each skill solves a different problem at a different price point — pick the one that

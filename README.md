@@ -458,6 +458,8 @@ Set up self-healing documentation with GitHub Actions CI
 
 ### 8. Security Assessment Suite — Four AppSec Skills + Active Hooks
 
+![Security Assessment Suite — four AppSec skills and active hooks for Claude Code](images/Security-automation-agents.jpg)
+
 **Folder:** [`skills/Security Assessment/`](skills/Security%20Assessment/) — see the [suite README](skills/Security%20Assessment/README.md) for the full reference.
 
 A self-contained AppSec automation kit: four slash commands covering the security lifecycle from **diff-time** to **design-time**, a multi-language pre-merge reviewer with subagent dispatch, four hooks (SessionStart, PreToolUse, PostToolUse, SessionEnd) that feed live security context to every agent, and a one-command installer that wires it all into Claude Code, Windsurf, or Codex.

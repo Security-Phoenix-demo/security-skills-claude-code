@@ -1,19 +1,40 @@
 ---
-description: Run the lightweight security reviewer (8-point check) against recent changes.
-argument-hint: "[scope] (e.g. 'auth', 'endpoints', 'frontend' — optional)"
+description: Multi-language security review (8-point check) on recent changes. Routes to the bundled stronger reviewer when present, falls back to the lite reviewer otherwise.
+argument-hint: "[scope] (e.g. 'auth', 'endpoints', 'frontend', a path, or empty for the diff)"
 ---
 
-You are running the **security-reviewer** skill against recent changes in the working tree.
+You are running the **security-reviewer** skill against recent changes.
+
+## Skill resolution (in order — use the first that exists)
+
+1. **Preferred (bundled)** — `skills/Security Assessment/Security-automated-claude-skills/.claude/skills/security-reviewer/SKILL.md`
+   Multi-language (Python, JS/TS, Go, Java/Kotlin, Rust, Ruby, .NET) with per-language reference packs in `languages/`, OWASP/ASVS + endpoint checklists, and a triage playbook.
+
+2. **Fallback (lite)** — `skills/Security Assessment/Security-reviewr/security-reviewer.md`
+   Single-file 8-point check with diagnostic ripgrep patterns. Use when the bundled version isn't installed.
 
 ## Instructions
 
-1. Load the skill at `skills/Security Assessment/Security-reviewr/security-reviewer.md`.
-2. Apply the **8-Point Security Check** from that skill, scoped to `$ARGUMENTS` if provided, otherwise the full diff vs the default branch.
-3. Use the diagnostic ripgrep patterns in the skill to surface risky areas fast.
-4. Output: short list of findings with severity (CRITICAL/HIGH/MEDIUM/LOW), file path, evidence snippet, recommended fix.
-5. If no findings: say so and list any residual risks or untested areas.
+1. Load whichever skill resolved above. Read it fully — including, for the bundled version, the language reference(s) matching the project's stack and the relevant checklists.
+2. Determine scope:
+   - If `$ARGUMENTS` is provided, scope to that (path, keyword like `auth`/`endpoints`/`frontend`, or category).
+   - Otherwise, scope to files changed since the last commit (`git diff --name-only HEAD~1`) plus obviously security-relevant globs (route files, middleware, auth, templates, IaC).
+3. Apply the 8-point check (Authn/Authz, Output encoding, SSRF, Secrets, Input handling, Config & headers, Supply chain, Failure modes).
+4. **Confirm before flagging.** Pattern matches that turn out safe-by-context get dropped. Open the file and read enough surrounding context to confirm.
+5. Output one block per finding in the skill's output format:
+   ```
+   [SEVERITY] <one-line summary>
+   File:     <path>:<line>
+   Category: <one of the 8 categories>
+   Evidence: <code snippet or pattern matched>
+   Fix:      <concrete change, ideally a diff>
+   Refs:     <CWE-XXX, OWASP A0X:2021, ASVS V-X.Y.Z>
+   ```
+6. If nothing fires, say so explicitly and list residual risks or untested areas — silence is not a clean bill.
 
 ## Scope guard
 
-- Read-only. Do not edit code.
-- Lighter and faster than `/security-assessment`. Use this for endpoint/auth/render changes; use `/security-assessment` for pre-release sweeps.
+- Read-only. Do not edit code as part of the review itself; describe fixes precisely instead.
+- For diff-level checks against a base ref, prefer `/security-0day`.
+- For pre-release sweeps, prefer `/security-assessment`.
+- For architecture / new feature design, prefer `/threatmodel`.

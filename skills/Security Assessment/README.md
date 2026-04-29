@@ -17,12 +17,12 @@ matches what you're doing right now.
 | Path | What it is | Cost | Use when |
 |---|---|---|---|
 | [`0day-scanner/`](./0day-scanner/SKILL.md) | LLM-powered diff/PR/commit vulnerability scanner | Low (~$0.05–$0.20 per run) | End of cycle, before PR merge |
-| [`Security-reviewr/`](./Security-reviewr/security-reviewer.md) | Lightweight reviewer agent — 8-point security check + diagnostic ripgrep patterns | Low | New endpoint, auth/RBAC change, frontend render change |
+| [`Security-automated-claude-skills/`](./Security-automated-claude-skills/) | **Canonical reviewer** — multi-language (Python, JS/TS, Go, Java/Kotlin, Rust, Ruby, .NET) skill + subagent + 3 active hooks (SessionStart fingerprint, PreToolUse Bash guard, PostToolUse quickscan). Includes language reference packs, OWASP/ASVS + endpoint checklists, triage playbook. | Low | New endpoint, auth/RBAC change, frontend render change — `/security-review` routes here when installed |
+| [`Security-reviewr/`](./Security-reviewr/security-reviewer.md) | **Lite/portable reviewer** — single-file 8-point check with ripgrep patterns. No hooks, no language packs. | Low | When you can't or don't want to install the full bundle (e.g. ephemeral repos, audits of someone else's project) |
 | [`security-assessment/`](./security-assessment/SKILL.md) | Full OWASP Top 10 (2025) + ASVS Level 1 sweep | High (~$8–$10 per run) | Pre-release, compliance, post-incident |
 | [`threat-modeling/`](./threat-modeling/SKILL.md) | Automated STRIDE/DREAD threat model with attack trees and mitigation mapping | Medium | Architecture review, new feature design, compliance docs |
 | [`Security-Analysis-Agent/`](./Security-Analysis-Agent/) | Parameterized backend/frontend tester + runbook templates (technology-agnostic, hydrate placeholders before use) | n/a (templates) | Drop-in scaffolding for stack-specific testing |
-| [`Security-automated-claude-skills/`](./Security-automated-claude-skills/) | **Advanced bundle** — multi-language reviewer skill + subagent + 3 active hooks (SessionStart fingerprint, PreToolUse Bash guard, PostToolUse quickscan) | Low | Drop-in `.claude/` with continuous in-session security context (complements the SessionEnd reminder in `install/`) |
-| [`install/`](./install/) | Slash commands, hooks, Windsurf rules/workflows, Codex `AGENTS.md` snippet | n/a | Wire the skills into your tool of choice |
+| [`install/`](./install/) | Slash commands, hooks (lite + full presets), Windsurf rules/workflows, Codex `AGENTS.md` snippet | n/a | Wire the skills into your tool of choice |
 
 > **No redundancy.** The four skills cover non-overlapping scopes (diff vs review vs sweep vs design). Don't merge them.
 
@@ -83,37 +83,37 @@ ln -s "../../skills/Security Assessment/install/commands/security-assessment.md"
 ln -s "../../skills/Security Assessment/install/commands/threatmodel.md"          .claude/commands/threatmodel.md
 ```
 
-**2. SessionEnd hook (optional, recommended)** — reminds you to run `/security-0day` if your branch has unscanned changes vs `main`. Zero LLM cost, plain bash.
+**2. Hooks — pick a preset.** Two ready-to-merge `.claude/settings.json` blocks:
 
-Merge the `hooks` block from [`install/hooks/settings.example.json`](./install/hooks/settings.example.json)
-into your project's `.claude/settings.json`:
+- **Lite** — [`install/hooks/settings.lite.example.json`](./install/hooks/settings.lite.example.json)
+  Only a SessionEnd reminder that nudges you to run `/security-0day` if your branch has unscanned changes vs `main`. Zero LLM cost, plain bash. Good default for low-noise workflows.
 
-```json
-{
-  "hooks": {
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PROJECT_DIR}/skills/Security Assessment/install/hooks/session-end-security-0day.sh\""
-          }
-        ]
-      }
-    ]
-  }
-}
+- **Full** — [`install/hooks/settings.full.example.json`](./install/hooks/settings.full.example.json) *(recommended for active security posture)*
+  Combines the **lite** SessionEnd reminder with the bundle's three active hooks:
+  - **SessionStart** — fingerprints the project, runs a fast dependency audit (osv-scanner if present, ecosystem-native fallbacks), and injects a `## SECURITY CONTEXT` block every agent in the session reads before its first turn.
+  - **PreToolUse on Bash** — gates `npm/pip/go get/cargo/gem/composer/dotnet add` invocations: blocks known-malicious packages, asks on typosquats and brand-new packages.
+  - **PostToolUse on Edit/Write/MultiEdit** — runs a fast pattern scan on every file write and feeds findings back via `additionalContext`.
+
+Pick one, copy its `hooks` block into your project's `.claude/settings.json` (creating the file if needed), and adjust paths if the suite lives somewhere other than `skills/Security Assessment/`.
+
+Disable the SessionEnd reminder any time with `SECURITY_0DAY_HOOK_DISABLED=1` in your environment.
+
+**3. Pair the bundled subagent (full preset only)** — copy the security-reviewer subagent so `/security-review` and proactive triggers can dispatch it:
+
+```bash
+mkdir -p .claude/agents
+cp "skills/Security Assessment/Security-automated-claude-skills/.claude/agents/security-reviewer.md" .claude/agents/
 ```
 
-The script bails silently if you're not on a feature branch or there's no diff. Disable any time with `SECURITY_0DAY_HOOK_DISABLED=1` in your environment, or by removing the entry.
-
-**3. (Optional) Advanced active hooks** — for continuous in-session security context (not just end-of-session), see the [`Security-automated-claude-skills/`](./Security-automated-claude-skills/) bundle. It ships a `.claude/` directory with three additional hooks (SessionStart fingerprint, PreToolUse Bash guard, PostToolUse quickscan on every file write) and a stronger multi-language reviewer subagent. Use it instead of, or alongside, the SessionEnd reminder. Read its `README.md` for install steps — the two install paths can coexist.
+The subagent loads the multi-language SKILL at `Security-automated-claude-skills/.claude/skills/security-reviewer/SKILL.md`, including the per-language reference packs in `languages/` and the `checklists/` and `playbooks/` it depends on.
 
 **4. Verify**
 
 ```bash
-ls .claude/commands/                 # should list 4 *.md files
-bash "skills/Security Assessment/install/hooks/session-end-security-0day.sh"  # smoke test
+ls .claude/commands/                                                                   # 4 *.md files
+bash "skills/Security Assessment/install/hooks/session-end-security-0day.sh"           # lite hook smoke test
+echo '{"tool_name":"Edit","tool_input":{"file_path":"src/foo.py"}}' | \
+  bash "skills/Security Assessment/Security-automated-claude-skills/.claude/hooks/post-edit-quickscan.sh"  # full preset smoke test
 ```
 
 In Claude Code, type `/` and confirm the four commands appear.
@@ -219,8 +219,11 @@ Confirm the files are in `.claude/commands/` (not nested deeper) and have the YA
 **SessionEnd hook prints nothing.**
 Either you're on `main`/`master` (intended), there's no diff, or you're not in a git repo. Run the script directly with `bash` to verify; check `git status` first.
 
-**`security-reviewer.md` references `rules/` and `checklists/` paths that don't exist.**
-That's by design — those are optional extension points. The skill works without them. See the **Adapting the skills** section above.
+**`Security-reviewr/security-reviewer.md` references `rules/` and `checklists/` paths that don't exist.**
+That's by design — those are optional extension points for the lite reviewer. The skill works without them. See the **Adapting the skills** section. The full bundle ships its own checklists at `Security-automated-claude-skills/.claude/skills/security-reviewer/checklists/`.
+
+**Full-preset hooks don't fire / no SECURITY CONTEXT block at session start.**
+Confirm the bundle scripts are executable: `chmod +x "skills/Security Assessment/Security-automated-claude-skills/.claude/hooks/"*.sh` and that your `.claude/settings.json` is project-level (project beats user-level). Run a hook by hand to inspect (see the verify smoke test above).
 
 **The `0day-scanner` and `security-assessment` skills mention an MCP tool (`run_security_assessment`, `analyze_for_zero_day_vulnerabilities`).**
 Those skills were authored against a Phoenix Security MCP server. Without the MCP server, the assistant will fall back to running the workflow steps inline using its built-in tools. Findings will still be valid; performance and breadth depend on the assistant.

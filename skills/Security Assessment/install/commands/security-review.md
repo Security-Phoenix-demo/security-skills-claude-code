@@ -5,17 +5,15 @@ argument-hint: "[scope] (e.g. 'auth', 'endpoints', 'frontend', a path, or empty 
 
 You are running the **security-reviewer** skill against recent changes.
 
-## Skill resolution (in order — use the first that exists)
+## Skill
 
-1. **Preferred (bundled)** — `skills/Security Assessment/Security-automated-claude-skills/.claude/skills/security-reviewer/SKILL.md`
-   Multi-language (Python, JS/TS, Go, Java/Kotlin, Rust, Ruby, .NET) with per-language reference packs in `languages/`, OWASP/ASVS + endpoint checklists, and a triage playbook.
-
-2. **Fallback (lite)** — `skills/Security Assessment/Security-reviewr/security-reviewer.md`
-   Single-file 8-point check with diagnostic ripgrep patterns. Use when the bundled version isn't installed.
+Load `skills/Security Assessment/Security-automated-claude-skills/.claude/skills/security-reviewer/SKILL.md` —
+multi-language reviewer (Python, JS/TS, Go, Java/Kotlin, Rust, Ruby, .NET) with per-language reference packs in `languages/`,
+OWASP/ASVS + endpoint checklists in `checklists/`, and a triage playbook in `playbooks/`.
 
 ## Instructions
 
-1. Load whichever skill resolved above. Read it fully — including, for the bundled version, the language reference(s) matching the project's stack and the relevant checklists.
+1. Load the skill above. Read it fully, including the language reference(s) matching the project's stack and the relevant checklists.
 2. Determine scope:
    - If `$ARGUMENTS` is provided, scope to that (path, keyword like `auth`/`endpoints`/`frontend`, or category).
    - Otherwise, scope to files changed since the last commit (`git diff --name-only HEAD~1`) plus obviously security-relevant globs (route files, middleware, auth, templates, IaC).

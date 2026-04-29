@@ -1,0 +1,15 @@
+{
+  "_comment": "Merge the 'hooks' block into your existing .claude/settings.json. Adjust the absolute path to security-0day-on-diff.sh.",
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/skills/Security Assessment/install/hooks/session-end-security-0day.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

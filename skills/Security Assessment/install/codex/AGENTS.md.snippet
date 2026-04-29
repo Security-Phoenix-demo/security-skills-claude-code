@@ -1,0 +1,22 @@
+# Append this block to your project's AGENTS.md (or copy into your Codex CLI instructions).
+# Codex CLI has no hook system, so this is enforced as a behavioral instruction.
+
+## Security review at end of feature work
+
+Before declaring a feature complete, opening a PR, or pushing changes:
+
+1. If any of the following changed in this branch — endpoints/routes, auth or RBAC logic,
+   frontend rendering, outbound HTTP fetches, dependencies, security-relevant config — run
+   the 8-point security check from `skills/Security Assessment/Security-reviewr/security-reviewer.md`
+   on the diff.
+
+2. For a thorough pre-release pass, run the comprehensive assessment described in
+   `skills/Security Assessment/security-assessment/SKILL.md`.
+
+3. For new architecture or sensitive features, run the threat model in
+   `skills/Security Assessment/threat-modeling/SKILL.md`.
+
+Output a short findings list with severity (CRITICAL/HIGH/MEDIUM/LOW), file:line, evidence
+snippet, and recommended fix. If clean, say so explicitly and list residual risks.
+
+Read-only — do not modify code as part of the review itself; propose fixes instead.

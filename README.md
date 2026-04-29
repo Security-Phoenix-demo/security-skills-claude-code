@@ -1,12 +1,12 @@
-# Security Skills for Claude Code
+# Security Skills for Claude Code — Open Source Security Automation Toolkit
 
-**Open-source security automation toolkit for Claude Code** — built by the engineering and security teams at [Phoenix Security](https://phoenix.security) for the global security community.
+**The open-source security automation toolkit for [Claude Code](https://claude.ai)** — CTI research, SAST rule generation, secure PRD creation, vulnerability analysis, and AI-powered security engineering workflows. Built by [Phoenix Security](https://phoenix.security) for the global AppSec, DevSecOps, and security research community.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skills%20%26%20Plugins-blueviolet)](https://claude.ai)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-> Threat intelligence research, SAST rule generation, secure product requirements, vulnerability analysis, NotebookLM integration, and security automation — all from your Claude Code terminal.
+> Search 595+ threat intelligence sources, generate opengrep/semgrep SAST rules for 30+ languages, create security-focused product requirements with STRIDE threat models, query NotebookLM for citation-backed research, and auto-generate living project documentation — all from your terminal with Claude Code.
 
 ---
 
@@ -30,6 +30,7 @@
   - [NotebookLM Connector](#5-notebooklm-connector)
   - [Global Research Pipeline](#6-global-research-pipeline)
   - [Project Documentation](#7-project-documentation)
+  - [Security Assessment Suite](#8-security-assessment-suite)
 - [Plugins Reference](#plugins-reference)
   - [CTI Search Plugin](#1-cti-search-plugin)
   - [Secure PRD Plugin](#2-secure-prd-plugin)
@@ -51,19 +52,19 @@
 
 ## What Is This Repository?
 
-This repository is a **curated collection of skills, plugins, and automation pipelines** designed for [Claude Code](https://claude.ai) — Anthropic's CLI for AI-assisted software engineering.
+This repository is a **curated collection of security skills, plugins, and automation pipelines** for [Claude Code](https://claude.ai) — Anthropic's official CLI for AI-assisted software engineering. It turns Claude Code into a comprehensive **security engineering workstation** capable of threat intelligence research, vulnerability detection rule generation, secure requirements engineering, and automated security documentation.
 
-It was built by the **engineering and security engineering teams at [Phoenix Security](https://phoenix.security)** and released as open source so that security professionals, DevSecOps engineers, AppSec teams, and developers worldwide can benefit from and contribute to better security tooling.
+Built and maintained by the **security engineering team at [Phoenix Security](https://phoenix.security)** and released as open source under the MIT License. Every skill is designed for real-world security workflows: incident response research, AppSec shift-left, SAST pipeline creation, compliance documentation, and security architecture review.
 
-**Who is this for?**
+**Built for security professionals who use AI to work faster and more accurately:**
 
-- Security engineers and analysts performing threat intelligence research
-- DevSecOps teams building secure-by-design products
-- AppSec professionals writing security-focused requirements and SAST rules
-- Penetration testers and red teamers gathering OSINT
-- Vulnerability researchers creating detection rules from CVE/CWE analysis
-- Developers who want security built into their workflow
-- Anyone using Claude Code who wants structured security automation
+- **Security engineers and SOC analysts** — automate CTI gathering across 595+ sources with authority-ranked results and MITRE ATT&CK mapping
+- **DevSecOps teams** — generate security-focused PRDs with STRIDE threat models before writing a single line of code
+- **AppSec professionals** — create opengrep/semgrep SAST rules for 30+ languages with built-in false positive reduction and CWE/OWASP tagging
+- **Vulnerability researchers** — research CVEs with web search, then auto-generate detection rules grounded in real exploit data
+- **Penetration testers and red teamers** — gather OSINT and push findings to NotebookLM for citation-backed analysis
+- **Engineering managers** — auto-generate living project documentation with architecture maps, dependency views, and self-healing CI
+- **Anyone using Claude Code** — extend your terminal with structured, repeatable security automation workflows
 
 ---
 
@@ -85,6 +86,7 @@ Skills are instruction-based workflows that guide Claude Code's behavior. They d
 | **[NotebookLM Connector](skills/notebooklm/)** | Query Google NotebookLM notebooks from Claude Code for citation-backed, source-grounded answers | `skills/notebooklm/` |
 | **[Global Research Pipeline](skills/global-research-notebook-lm/)** | Systematic web and YouTube research with NotebookLM ingestion | `skills/global-research-notebook-lm/` |
 | **[Project Documentation](skills/project%20Documentaion%20skill/)** | Auto-generate comprehensive project documentation | `skills/project%20Documentaion%20skill/` |
+| **[Security Assessment Suite](skills/Security%20Assessment/)** | Four complementary AppSec skills (`/security-0day`, `/security-review`, `/security-assessment`, `/threatmodel`) with active hooks, multi-language reviewer, and one-command installer | `skills/Security Assessment/` |
 
 ### Plugins
 
@@ -229,75 +231,82 @@ security-skills-claude-code/
 
 ## Skills Reference
 
-### 1. CTI Domain Research
+### 1. CTI Domain Research — Automated Threat Intelligence Gathering
 
 **Folder:** [`skills/cti-search-skill/`](skills/cti-search-skill/)
 
-Search 300+ curated security domains for threat intelligence. The skill routes queries intelligently across four domain tiers based on query type.
-
-
-
 ![Research, Verify, Detect: Structured Threat Intelligence for Claude Code](images/cti-skills.jpg)
+
+Stop manually searching BleepingComputer, Krebs on Security, and vendor blogs one tab at a time. The **CTI Domain Research** skill transforms Claude Code into a structured threat intelligence platform that searches **595+ curated security domains** in seconds — covering government advisories, vendor research labs, security news, and OSINT sources in a single query.
+
+The skill uses a **four-tier authority ranking system** to ensure the most trustworthy sources surface first. When you search for a CVE, it automatically prioritizes CISA, NVD, and MSRC (Tier 1) before checking Unit42, Talos, and Securelist (Tier 2). Threat actor queries route to vendor research blogs first. Exploit searches hit GreyNoise, VulnCheck, and AttackerKB. Every result is deduplicated, scored by source authority and recency, and returned as a structured CTI brief with extracted CVE IDs, MITRE ATT&CK technique mappings, and observed IOCs.
+
+The optional `--notebooklm` flag pushes all discovered source URLs directly into a Google NotebookLM notebook, creating a permanent, citation-backed research archive that you can query later with zero hallucination risk. This turns a one-off search into a reusable knowledge base.
 
 **Example prompts:**
 ```
 Search for threat intelligence on CVE-2024-21762
-Find recent LockBit ransomware reports
-What are security vendors saying about ALPHV?
-Research MITRE T1190 exploitation techniques
-Collect CTI on supply chain attacks in npm
+Find recent LockBit ransomware reports across vendor blogs
+What are security vendors saying about ALPHV BlackCat?
+Research MITRE T1190 exploitation techniques and push to NotebookLM
+Collect CTI on supply chain attacks targeting npm packages
 ```
 
-
-**What it does:**
-1. Classifies your query (CVE, threat actor, malware, general)
-2. Routes to appropriate domain tiers
-3. Searches across 300+ curated security sources
-4. Deduplicates and ranks results by authority
-5. Extracts IOCs, CVEs, and MITRE ATT&CK mappings
-6. Returns a structured CTI brief
+**How it works:**
+1. **Query classification** — automatically detects whether you're searching for a CVE, threat actor, malware family, exploit, or general topic
+2. **Intelligent tier routing** — selects the most relevant domain tiers based on query type
+3. **Batched site-scoped search** — constructs `site:` queries across domain batches using Brave Search or SerpAPI
+4. **Authority-ranked deduplication** — removes duplicates, scores results by source tier and recency
+5. **IOC and TTP extraction** — pulls CVE IDs, MITRE ATT&CK T-IDs, and IP indicators from result snippets
+6. **Structured output** — returns a CTI brief with key findings, source table, observed tags, and next steps
 
 ---
 
-### 2. Secure PRD Generator
+### 2. Secure PRD Generator — Shift Security Left to the Requirements Stage
 
 **Folder:** [`skills/secure-prd-skill/`](skills/secure-prd-skill/)
 
-Generate full Product Requirements Documents with built-in security considerations. Uses a 10-role specification pipeline (the Phoenix Pipeline) to produce rigorous, RFC 2119-compliant requirements with threat models.
-
-
 ![Shift Security Left at the PRD Stage](images/prd-pipeline.jpg)
 
+Traditional PRDs focus exclusively on features and leave security as an afterthought — discovered too late in testing, patched as a hotfix, or never addressed at all. The **Secure PRD Generator** integrates security into the requirements phase itself, running every feature description through a **10-role specification pipeline** that produces RFC 2119-compliant requirements with STRIDE threat models, abuse cases, and verification proof paths built in from the start.
 
-**Outputs:**
-- Full PRD markdown document
-- Cursor-compatible plan file (`.cursor/plans/`)
-- Confluence page (via Atlassian MCP)
-- RFC 2119 requirements with P0/P1/P2 priorities
-- Security threat model and abuse cases
-- Optional: Linear/Asana tasks, Slack notifications, Notion pages, Gmail drafts
+Each role in the pipeline handles a specialized aspect of specification: the **Context Curator** cleanses and structures the input; the **Ambiguity Hunter** flags vague instructions that cause downstream design flaws; the **Requirements Engineer** formalizes requirements with MUST/SHOULD/MAY levels and structured IDs (R-FUNC-001, R-SEC-001); the **Security Engineer** develops comprehensive threat models and abuse cases alongside the functional requirements; and the **Verification Matrix** creates concrete proof paths for every MUST-level requirement to ensure full testability.
+
+The skill integrates directly with your team's existing tools. It publishes the PRD to **Atlassian Confluence** via MCP, converts requirements into **Linear or Asana** tasks automatically, sends **Slack** notifications to stakeholders, mirrors documents to **Notion**, and drafts summary emails via **Gmail**. Every output follows a consistent security-first template with priority tags (P0/P1/P2) and traceable requirement chains.
+
+**What it produces:**
+- Security-first PRD in structured markdown with RFC 2119 requirement levels
+- STRIDE threat model with identified assets, actors, entry points, and trust boundaries
+- Cursor-compatible implementation plan for `.cursor/plans/`
+- Confluence page published to your configured space
+- Automated task distribution to Linear or Asana from the batch plan
+- Stakeholder notifications via Slack and Gmail
+
+**Example prompts:**
+```
+Write a PRD for a user authentication system with OAuth2 and MFA
+Create a security-focused spec for a payment processing API
+Plan this feature: real-time webhook delivery system. Owner: @jane. Space: ENG.
+Generate requirements for a file upload service with virus scanning
+```
 
 ---
 
-### 3. OpenGrep Rule Generator
+### 3. OpenGrep Rule Generator — AI-Powered SAST Rule Creation
 
 **Folder:** [`skills/opengrep-rule-generator/`](skills/opengrep-rule-generator/)
 
 ![Generate Automatically Opengrep Rules](images/OpenGrep-Rule-Auto-Generaiton.jpg)
 
+Writing effective SAST rules is slow, error-prone, and requires deep knowledge of both the vulnerability class and the rule engine's syntax. The **OpenGrep Rule Generator** automates the entire process — from vulnerability description to validated, production-ready opengrep/semgrep YAML rules with test cases, CWE metadata, and false positive reduction patterns.
 
-Generate valid opengrep/semgrep SAST (Static Application Security Testing) rules for vulnerability detection. Supports **30+ programming languages** including Python, JavaScript, TypeScript, Java, Go, Ruby, PHP, C#, Rust, Terraform/HCL, and Solidity.
+The skill supports **30+ programming languages** including Python, JavaScript, TypeScript, Java, Go, Ruby, PHP, C#, Rust, Kotlin, Swift, Terraform/HCL, and Solidity. It generates two types of rules: **Search rules** for structural pattern matching (finding dangerous function calls, insecure configurations, hardcoded secrets) and **Taint rules** for data flow analysis (tracing untrusted input from sources through propagators to dangerous sinks, with sanitizer awareness).
+
+Every generated rule includes built-in false positive reduction using `pattern-not`, `pattern-not-inside`, and `metavariable-regex` patterns. The skill also generates companion test files with clearly marked true positive and true negative cases so you can validate detection accuracy before deploying to your CI pipeline.
 
 **Two workflows:**
-- **Guided Discovery** — interactive Q&A to discover what patterns to detect
-- **Vulnerability-Driven** — given CVEs, CWEs, or OWASP categories, generates rules automatically
-
-**Capabilities:**
-- Two rule modes: **Search** (structural pattern matching) and **Taint** (data flow analysis with sources, sinks, sanitizers)
-- False positive reduction with `pattern-not`, `pattern-not-inside`, `metavariable-regex`
-- Test file generation (true positives and true negatives)
-- Batch generation for OWASP Top 10 coverage
-- CWE/OWASP metadata tagging on every rule
+- **Guided Discovery** — interactive Q&A where Claude asks about your codebase, frameworks, and threat model before generating targeted rules
+- **Vulnerability-Driven** — provide a CVE, CWE, or OWASP category and get rules generated automatically with appropriate detection patterns
 
 **Example prompts:**
 ```
@@ -305,107 +314,237 @@ Create an opengrep rule to detect SQL injection in Python Flask apps
 Generate a taint analysis rule for XSS in React components
 Write semgrep rules for OWASP Top 10 in Java Spring Boot
 Detect hardcoded AWS credentials in any language
+Build a rule to catch insecure deserialization in Python pickle usage
+Generate Terraform rules to detect publicly exposed S3 buckets
 ```
 
 **Key files:**
-- `SKILL.md` — full skill specification and workflow
-- `RULES_SYNTAX.md` — comprehensive opengrep/semgrep syntax reference
-- `OPENGREP_RULE_GENERATOR_PROMPT.md` — system prompt for rule generation
+- `SKILL.md` — full skill specification with guided and vulnerability-driven workflows
+- `RULES_SYNTAX.md` — comprehensive opengrep/semgrep syntax reference (patterns, operators, metavariables, taint mode)
+- `OPENGREP_RULE_GENERATOR_PROMPT.md` — optimized system prompt for high-quality rule generation
 
 ---
 
-### 4. OpenGrep Rule Generator Research
+### 4. OpenGrep Rule Generator Research — Vulnerability-First Detection Engineering
 
 **Folder:** [`skills/opengrep-rule-generator-research/`](skills/opengrep-rule-generator-research/)
 
 ![Generate Automatically Opengrep Rules and research vulnerabilities](images/Opengrep-Rules-Research.jpg)
 
+The standard OpenGrep Rule Generator works great when you already know the pattern you want to detect. But what if you're starting from a CVE advisory, a vulnerability class, or a vague report about a new attack technique? The **Research** variant adds a **4-phase vulnerability research pipeline** that uses web search and web fetch to study the vulnerability in depth before generating detection rules — producing significantly better, more targeted rules that are grounded in real-world exploit data.
 
-Extended version of the OpenGrep Rule Generator with a **vulnerability research phase**. Uses web search and web fetch to research CVEs and CWEs before generating detection rules — producing better, more targeted rules grounded in real vulnerability data.
+This is the difference between writing a rule from a description and writing a rule from understanding. The research phase studies official advisories, analyzes proof-of-concept exploits, maps language-specific attack surfaces (sources, sinks, sanitizers, propagators), and reviews existing semgrep/opengrep rules to identify coverage gaps. The resulting rules are inherently linked to real exploit behavior, not abstract patterns.
 
 **Research pipeline (4 phases):**
-1. **Understand the vulnerability** — search CVE/CWE databases, fetch official advisories, study exploit examples
-2. **Map language-specific attack surface** — identify sources, sinks, sanitizers, and propagators for the target language
-3. **Study existing detection** — search for existing semgrep/opengrep rules and identify coverage gaps
-4. **Document findings** — write a research summary at the top of each generated rule file
+1. **Vulnerability deep dive** — search CVE/CWE databases, fetch CISA/NVD/MSRC advisories, study proof-of-concept exploits to understand the actual attack mechanics
+2. **Attack surface mapping** — identify specific sources, sinks, and certifiers for the target programming language based on the researched exploit behavior
+3. **Existing detection gap analysis** — search for existing semgrep/opengrep rules, analyze what they catch and miss, identify coverage blind spots
+4. **Grounded rule generation** — generate SAST rules that are directly linked to the researched exploit patterns, with a research summary embedded in each rule file
 
 **Example prompts:**
 ```
 Research CVE-2024-21762 and create detection rules for it
-Generate opengrep rules for CWE-89 (SQL Injection) in Python with research
-Investigate Log4Shell and build comprehensive detection coverage
+Generate opengrep rules for CWE-89 (SQL Injection) in Python with full research
+Investigate Log4Shell and build comprehensive detection coverage for Java
 Research SSRF vulnerabilities in Node.js and create taint analysis rules
+Study the MOVEit Transfer vulnerability and write detection rules
 ```
 
 **When to use this vs. the standard OpenGrep Rule Generator:**
-- Use **OpenGrep Rule Generator** when you already know the pattern you want to detect
-- Use **OpenGrep Rule Generator Research** when you need to research a vulnerability first, then generate rules from your findings
+- Use **OpenGrep Rule Generator** when you already know the exact code pattern you want to detect
+- Use **OpenGrep Rule Generator Research** when you're starting from a CVE ID, CWE class, or vulnerability description and need to understand the attack before building detection
 
 ---
 
-### 5. NotebookLM Connector
+### 5. NotebookLM Connector — Source-Grounded AI Research with Zero Hallucinations
 
 **Folder:** [`skills/notebooklm/`](skills/notebooklm/)
 
-Query [Google NotebookLM](https://notebooklm.google.com/) notebooks directly from Claude Code. Get source-grounded, citation-backed answers from Gemini with drastically reduced hallucination — responses are based only on your uploaded documents.
+LLM-based security research has a fundamental problem: hallucinations. When Claude can't find something in your uploaded documents, it fills the gap with plausible-sounding but potentially incorrect information — a dangerous failure mode when you're writing detection logic, threat models, or security requirements. The **NotebookLM Connector** solves this by routing questions through [Google NotebookLM](https://notebooklm.google.com/), which answers exclusively from your uploaded documents with strict citation backing.
+
+Every response from NotebookLM is grounded in the specific documents you've uploaded — PDFs, Google Docs, websites, GitHub repos, YouTube videos. If the information isn't in your sources, NotebookLM says so instead of inventing an answer. This makes it the ideal research backend for security work where accuracy is non-negotiable: vulnerability analysis, compliance documentation, API specification lookups, and threat model validation.
+
+The skill manages a **notebook library** so Claude automatically selects the right notebook for your question. Ask about authentication best practices and it routes to your security-docs notebook. Ask about API endpoints and it hits your architecture notebook. Each question runs in a fresh browser session with persistent authentication, and the built-in follow-up mechanism ensures Claude asks comprehensive questions until the research is complete.
 
 **Capabilities:**
-- Query any NotebookLM notebook by ID or URL
-- Manage a notebook library (add, remove, list, search, activate/deactivate)
-- Browser automation with persistent authentication
-- Follow-up queries within the same notebook context
-- Coverage analysis to ensure all parts of your question are answered
+- Query any NotebookLM notebook by ID or URL with citation-backed responses
+- Smart notebook library management — add, remove, list, search, activate/deactivate notebooks
+- Automatic content discovery — query a notebook to auto-populate its metadata before saving
+- Browser automation with persistent Google authentication
+- Iterative follow-up queries to build comprehensive understanding
+- Coverage analysis to ensure all parts of your question are fully answered
 
 **Example prompts:**
 ```
 Query my security-docs notebook about authentication best practices
 Add this NotebookLM URL to my library: https://notebooklm.google.com/notebook/abc123
-List my notebooks
 What does my threat-model notebook say about SSRF risks?
+Check my API docs for rate limiting implementation details
+Search my notebooks for information about OAuth2 token rotation
 ```
 
-**Setup requirements:**
-- Chrome or Edge browser running with the "Claude in Chrome" extension
-- Google account logged in to NotebookLM
-- One-time authentication setup (see `AUTHENTICATION.md`)
-
 **Key files:**
-- `SKILL.md` — skill specification and query workflow
-- `README.md` — extended documentation with setup guide
-- `AUTHENTICATION.md` — step-by-step authentication setup
-- `scripts/` — Python automation scripts for browser interaction
-- `references/` — API reference, troubleshooting, usage patterns
+- `SKILL.md` — skill specification with decision flow and follow-up mechanism
+- `README.md` — comprehensive setup guide with architecture diagram and examples
+- `AUTHENTICATION.md` — step-by-step Google authentication setup
+- `scripts/` — Python automation scripts (ask_question.py, notebook_manager.py, auth_manager.py)
+- `references/` — API reference, troubleshooting guide, usage patterns
 
 ---
 
-### 6. Global Research Pipeline
+### 6. Global Research Pipeline — Automated Intelligence Collection and Ingestion
 
 **Folder:** [`skills/global-research-notebook-lm/`](skills/global-research-notebook-lm/)
 
-A systematic research pipeline that combines web search and YouTube research, then pushes findings into Google NotebookLM for citation-backed analysis.
+Individual searches give you snapshots. The **Global Research Pipeline** gives you systematic coverage. This skill orchestrates a multi-module research automation pipeline that collects intelligence from web searches and YouTube video transcripts, deduplicates and organizes findings, and pushes everything into Google NotebookLM for permanent, source-grounded querying.
 
-**Components:**
-- Web research module
-- YouTube research module
-- NotebookLM push automation
-- Full pipeline orchestration
+The pipeline is designed for deep-dive research scenarios where you need to gather comprehensive intelligence on an emerging threat, a new vulnerability class, or a complex security topic. Instead of running individual searches and manually copying results, the pipeline handles the entire workflow: systematic data collection across web and video sources, automated deduplication, structured formatting, and batch ingestion into your NotebookLM research archive.
+
+This creates a **repeatable research-to-analysis pipeline**: search → collect → deduplicate → ingest → query. Once findings are in NotebookLM, you can ask follow-up questions with full citation backing, cross-reference information across sources, and build on previous research without re-running searches.
+
+**Pipeline stages:**
+1. **Web research** — structured searches across relevant domains with finding extraction
+2. **YouTube research** — locate and transcribe relevant video content (conference talks, vendor webinars, researcher presentations)
+3. **Deduplication and organization** — remove duplicates, structure results for ingestion
+4. **NotebookLM push** — batch-add all collected sources to your target notebook
+5. **Downstream querying** — use the NotebookLM Connector skill to query your research with zero hallucination
+
+**Example prompts:**
+```
+Research the latest ransomware trends and push findings to NotebookLM
+Collect comprehensive intelligence on supply chain attacks targeting Python packages
+Research cloud security misconfigurations across AWS, GCP, and Azure
+```
 
 ---
 
-### 7. Project Documentation
+### 7. Project Documentation — Turn Any Codebase into Living Documentation
 
 **Folder:** [`skills/project Documentaion skill/`](skills/project%20Documentaion%20skill/)
 
-
 ![Project Documentation: Turning Codebases into Living Documentation](images/project-documentation.jpg)
 
+Documentation drift is the silent killer of engineering velocity. Code evolves daily while docs go stale within weeks, creating security blind spots, tribal knowledge silos, and painful onboarding experiences. The **Project Documenter** skill reverse-engineers your entire codebase and produces a **three-layer hierarchical documentation system** that stays accurate because it's generated from the code itself.
 
-Automatically generate comprehensive project documentation from your codebase. Available in two variants:
+The skill produces a compressed **DOC_INDEX.md** routing layer (~1-2k tokens, perfect for AI assistants), an engineering **CLAUDE.md** navigation map (150-300 lines for human developers), and a complete set of **/docs/** sub-documents containing all authoritative detail — architecture diagrams, dependency maps, API references, module guides, runtime flow descriptions, and onboarding walkthroughs. Nothing is duplicated across layers.
 
-- **Full mode** — deep analysis with architecture diagrams and dependency mapping
-- **Simple mode** — lightweight summary for quick documentation needs
+Available in **six modes** to match your needs: Express (full pack, zero questions), General (developer-facing docs), AI/LLM (prompt inventories, model architecture, agent safety), Architecture (system maps, data contracts, dependency graphs), Full (everything plus audit of existing docs), and Self-Heal (generates GitHub Actions CI, Cursor rules, and Python drift-detection scripts to keep docs permanently in sync with code changes).
 
-Includes its own `HOW_IT_WORKS.md`, `INSTALL.md`, `MODES_REFERENCE.md`, and `TROUBLESHOOTING.md`.
+**Output artifacts:**
+- **Project Summary** — high-level overview of system purpose and function
+- **Architecture Diagram** — visual mapping of system components and data flow
+- **Dependency View** — comprehensive list and map of third-party libraries and internal links
+- **Service/Component Map** — structural breakdown of project organization
+- **Onboarding Document** — guided walkthrough for new developers and auditors
+- **Self-Heal CI** (Mode 5) — GitHub Actions workflow + Python scripts that detect documentation drift automatically
+
+**Example prompts:**
+```
+Document this project (Express mode — full pack, zero questions)
+Generate architecture documentation for this codebase
+Create AI/LLM documentation including prompt inventory and model guardrails
+Set up self-healing documentation with GitHub Actions CI
+```
+
+**Key files:**
+- `project-documenter.skill` — full skill definition (install in Claude.ai or Claude Code)
+- `project-documenter-simpler.skill` — lightweight variant for quick documentation
+- `HOW_IT_WORKS.md` — complete technical reference
+- `MODES_REFERENCE.md` — detailed guide to every mode and its outputs
+- `INSTALL.md` — step-by-step installation and first-run guide
+- `TROUBLESHOOTING.md` — common issues and fixes
+
+---
+
+### 8. Security Assessment Suite — Four AppSec Skills + Active Hooks
+
+**Folder:** [`skills/Security Assessment/`](skills/Security%20Assessment/) — see the [suite README](skills/Security%20Assessment/README.md) for the full reference.
+
+A self-contained AppSec automation kit: four slash commands covering the security lifecycle from **diff-time** to **design-time**, a multi-language pre-merge reviewer with subagent dispatch, four hooks (SessionStart, PreToolUse, PostToolUse, SessionEnd) that feed live security context to every agent, and a one-command installer that wires it all into Claude Code, Windsurf, or Codex.
+
+**The four skills (when to use each):**
+
+| Command | Use when | Cost | Engine |
+|---|---|---|---|
+| `/security-0day [base-ref]` | End of a coding cycle, before opening a PR. Diff-only LLM scan. | Low (~$0.05–$0.20) | `0day-scanner/SKILL.md` (with bundle language packs as on-disk fallback) |
+| `/security-review [scope]` | Endpoint, auth/RBAC, render, dependency, or config change. Pre-merge gate. | Low–Medium | Multi-language reviewer in `Security-automated-claude-skills/` (Python, JS/TS, Go, Java/Kotlin, Rust, Ruby, .NET) |
+| `/security-assessment [scope]` | Pre-release, compliance audit, post-incident. Full OWASP Top 10 (2025) + ASVS Level 1 sweep. | High (~$8–$10) | `security-assessment/SKILL.md` (with bundle OWASP/ASVS checklists as fallback) |
+| `/threatmodel [scope]` | Architecture review, new-feature design, compliance docs. | Medium | `threat-modeling/SKILL.md` — STRIDE + DREAD with attack trees and mitigation matrix |
+
+**Active hooks (full preset only — opt out for the lite preset):**
+
+- **`SessionStart`** fingerprints the project, runs a fast dependency audit (osv-scanner if installed, else npm/pip/cargo/go/bundle audits per ecosystem), and injects a `## SECURITY CONTEXT` block every agent reads before its first turn.
+- **`PreToolUse` on `Bash`** gates `npm/yarn/pnpm/pip/uv/poetry/cargo/go get/gem/bundle/composer/dotnet add` invocations. Blocks known-malicious packages, asks on typosquats and brand-new packages.
+- **`PostToolUse` on `Edit|Write|MultiEdit`** runs a fast pattern scan on every file write (SQL string formatting, `innerHTML`, hardcoded secrets, etc.) and feeds findings back via `additionalContext`.
+- **`SessionEnd`** prints a one-line reminder to run `/security-0day` if your branch has unscanned changes vs `main`. Zero LLM cost.
+
+**Install — one command:**
+
+```bash
+# From your project root, after cloning this repo (or installing the marketplace plugin):
+bash "skills/Security Assessment/install/install.sh" --full
+```
+
+That's it. The installer:
+
+1. Copies the four slash commands into `.claude/commands/`.
+2. Merges the chosen hook preset into `.claude/settings.json` (uses `jq` if available; backs up your existing settings first; tracks installer-created files so `--uninstall` is clean).
+3. Copies the security-reviewer subagent into `.claude/agents/` (full preset only).
+4. Chmods all hook scripts.
+
+**Variants:**
+
+- `install.sh` *(default)* or `install.sh --lite` — slash commands + SessionEnd reminder hook only. Zero LLM cost.
+- `install.sh --full` — everything in lite **plus** the three active hooks **plus** the subagent.
+- `install.sh --dry-run [--lite|--full]` — preview without writing.
+- `install.sh --uninstall` — remove commands + subagent, restore `.claude/settings.json` from the backup.
+
+**Other tools:**
+
+- **Windsurf** — `cp` a rule into `.windsurf/rules/` (auto-fires on endpoint/auth/render/dep changes) and two workflows (`/security-assessment`, `/threatmodel`) into `.windsurf/workflows/`. One-line install in the suite README.
+- **Codex CLI** — `cat` the `AGENTS.md.snippet` onto your project's `AGENTS.md`. Codex has no hook system, so this is enforced as a behavioral instruction.
+
+**Optional dependencies:**
+
+- `jq` — recommended for clean settings.json merge (installer falls back to copy-paste instructions if absent).
+- `ripgrep` — required by the post-edit-quickscan hook (already required by Claude Code itself).
+- `osv-scanner` — optional; richer dependency audit at SessionStart. `brew install osv-scanner` or `go install github.com/google/osv-scanner/cmd/osv-scanner@latest`.
+
+**Example prompts:**
+
+```
+/security-0day                         # scan diff vs main with the LLM 0-day scanner
+/security-0day origin/release-1.4      # scan diff vs a different base ref
+/security-review auth                  # 8-point check focused on auth surfaces
+/security-assessment backend           # full OWASP/ASVS sweep, backend only
+/threatmodel src/payments/             # STRIDE + DREAD threat model for the payments component
+```
+
+**When the four skills overlap (and how to pick):**
+
+```
+Are you reviewing a specific diff/PR/commit?
+├── Yes → /security-0day
+└── No → Did the change touch endpoints/auth/render/deps/config?
+        ├── Yes → /security-review
+        └── No → Pre-release / quarterly audit?
+                ├── Yes → /security-assessment
+                └── No → New feature / architecture design?
+                        ├── Yes → /threatmodel
+                        └── No → You probably don't need this suite right now.
+```
+
+**Key files:**
+
+- `README.md` — suite overview, install, decision tree, hook reference, subagent details, cross-skill integration diagram, troubleshooting.
+- `install/install.sh` — the one-command installer.
+- `install/commands/` — the four slash command definitions (each is a thin wrapper over a SKILL).
+- `install/hooks/settings.{lite,full}.example.json` — ready-to-merge `.claude/settings.json` blocks.
+- `install/windsurf/` — Windsurf rule + workflows.
+- `install/codex/AGENTS.md.snippet` — Codex behavioral instruction.
+- `Security-automated-claude-skills/` — the canonical multi-language reviewer (skill + subagent + hooks + checklists + per-language reference packs + triage playbook). Also the on-disk fallback for `/security-assessment` and `/security-0day`.
+- `Security-Analysis-Agent/` — parameterized backend/frontend tester templates with `{{PLACEHOLDERS}}` (hydrate before use).
+- `_archive/Security-reviewr/` — the older single-file lite reviewer; superseded by the bundle, kept for recovery.
 
 ---
 

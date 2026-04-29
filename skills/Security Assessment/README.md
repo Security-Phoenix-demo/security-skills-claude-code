@@ -49,14 +49,14 @@ Are you reviewing a specific diff/PR/commit?
 
 After install, you get four commands:
 
-| Command | Skill | Cost | When |
+| Command | Engine | Cost | When |
 |---|---|---|---|
-| `/security-0day [base-ref]` | `0day-scanner` | low | Manual diff scan (default base = `main`) |
-| `/security-review [scope]` | `Security-reviewr/security-reviewer` | low–med | Endpoint/auth/render change |
-| `/security-assessment [scope]` | `security-assessment` | high | Pre-release full sweep |
-| `/threatmodel [scope]` | `threat-modeling` | medium | Architecture / new feature |
+| `/security-0day [base-ref]` | `0day-scanner/SKILL.md` (with bundle language packs as fallback) | low | Manual diff scan; default base = `main` |
+| `/security-review [scope]` | `Security-automated-claude-skills/.claude/skills/security-reviewer/SKILL.md` | low–med | Endpoint, auth/RBAC, render, dep, or config change |
+| `/security-assessment [scope]` | `security-assessment/SKILL.md` (with bundle checklists as fallback) | high | Pre-release full sweep |
+| `/threatmodel [scope]` | `threat-modeling/SKILL.md` | medium | Architecture / new feature design |
 
-Sources live in [`install/commands/`](./install/commands/).
+Sources live in [`install/commands/`](./install/commands/). Each command file is a thin wrapper that loads the matching engine SKILL with scope guards — see the files for the exact instructions sent to the assistant.
 
 ---
 
@@ -129,42 +129,114 @@ the current diff vs main`.
 
 ---
 
+## Bundle internals — `Security-automated-claude-skills/`
+
+The bundle is the canonical reviewer and the shared resource the other skills fall back to. Layout:
+
+```
+Security-automated-claude-skills/
+├── .claude/
+│   ├── settings.json                                    # ready-to-merge hook wiring (the installer uses install/hooks/settings.full.example.json instead, which targets the suite path)
+│   ├── agents/security-reviewer.md                      # subagent — pre-merge AppSec reviewer, dispatched by /security-review or proactively
+│   ├── hooks/
+│   │   ├── lib/common.sh                                # JSON I/O + project-root detection (uses git rev-parse --show-toplevel)
+│   │   ├── session-start.sh                             # SessionStart: project fingerprint + dep audit + SECURITY CONTEXT injection
+│   │   ├── pre-bash-package-guard.sh                    # PreToolUse Bash: install gate (blocklist, typosquat, brand-new packages)
+│   │   └── post-edit-quickscan.sh                       # PostToolUse Edit/Write/MultiEdit: per-extension pattern scan
+│   └── skills/security-reviewer/
+│       ├── SKILL.md                                     # router + 8-point check
+│       ├── languages/{python,javascript-typescript,go,java,rust,ruby,dotnet}.md   # per-language reference packs
+│       ├── checklists/owasp-asvs.md                     # OWASP Top 10 ↔ ASVS L1 controls (used by /security-assessment fallback)
+│       ├── checklists/endpoint-checklist.md             # per-endpoint review template
+│       └── playbooks/triage.md                          # severity rubric + fix templates
+├── README.md                                            # bundle's own docs
+└── sec-bundle.tar.gz                                    # original tarball (kept for re-packaging; already extracted)
+```
+
+## Hook reference (full preset)
+
+| Hook | Event | Purpose | Cost | Disable |
+|---|---|---|---|---|
+| `session-start.sh` | `SessionStart` | Detect ecosystems, run a fast dep audit (osv-scanner if present, else npm/pip/cargo/go/bundle audits per ecosystem), inject a `## SECURITY CONTEXT` block via `additionalContext` so every agent reads project posture before its first turn. | Free (no LLM) | Remove the SessionStart entry from `.claude/settings.json`. Bust the 15-min cache with `SEC_FRESH=1`. |
+| `pre-bash-package-guard.sh` | `PreToolUse` (matcher: `Bash`) | Parse `npm/yarn/pnpm/pip/uv/poetry/cargo/go get/gem/bundle/composer/dotnet add` invocations. Blocks installs of known-malicious packages, asks on typosquats (edit distance ≤2 vs popular packages) and brand-new packages (npm registry publish < 7 days). | Free | Remove the PreToolUse entry. Tune blocklist via `.claude/security/blocklist.txt` (`ecosystem:pkgname` per line). |
+| `post-edit-quickscan.sh` | `PostToolUse` (matcher: `Edit\|Write\|MultiEdit`) | Dispatches by file extension, runs ripgrep over high-confidence patterns (SQL string formatting, `innerHTML`, hardcoded secrets, etc.), feeds findings back via `additionalContext`. Heuristic only — full review remains the subagent's job. | Free | Remove the PostToolUse entry. Tune severities in the `add_finding` calls in the script. |
+| `session-end-security-0day.sh` | `SessionEnd` | One-line reminder when branch ≠ default and there's a non-zero diff: prints the `/security-0day` command to copy-paste. Does not invoke an LLM. | Free | `export SECURITY_0DAY_HOOK_DISABLED=1` or remove the SessionEnd entry. |
+
+Lite preset includes only the SessionEnd reminder. Full preset includes all four.
+
+## Subagent — `security-reviewer`
+
+Installed by `install.sh --full` to `.claude/agents/security-reviewer.md`. Pairs with the bundle SKILL.
+
+- **Triggers**: invoked by `/security-review`, the Windsurf rule, or proactively when an agent decides a change warrants AppSec review (frontmatter description steers Claude Code's auto-dispatch heuristics).
+- **Inputs it reads**: the `## SECURITY CONTEXT` block (if `session-start.sh` injected one), the user's stated scope, files in the diff (`git diff --name-only HEAD~1` by default), the language reference pack(s) matching the project, and findings already emitted by `post-edit-quickscan.sh` (won't re-discover them).
+- **Output**: a deduplicated finding list in the format defined by the bundle SKILL (`[SEVERITY] one-liner / File / Category / Evidence / Fix / Refs`). Plus, when a finding warrants a ticket, a `## TICKETS` block.
+- **What it doesn't do**: run destructive commands, write the fix itself (unless asked), roleplay outside AppSec.
+
+## Cross-skill integration — how the four skills share state
+
+```
+                    ┌────────────────────────────────────────────┐
+                    │  Security-automated-claude-skills (bundle) │
+                    │  ─ checklists/owasp-asvs.md                │
+                    │  ─ checklists/endpoint-checklist.md        │
+                    │  ─ languages/*.md                          │
+                    │  ─ playbooks/triage.md                     │
+                    └────────────────────────────────────────────┘
+                                    ▲       ▲       ▲
+            on-disk fallback ───────┘       │       └─── on-disk fallback
+                                            │
+            /security-assessment ───────────┤              /security-0day
+            (when MCP unreachable)          │              (when MCP unreachable;
+                                            │               + stack-aware language packs)
+                                            │
+                                  /security-review (canonical)
+```
+
+- `/security-review` always loads the bundle SKILL.
+- `/security-assessment` and `/security-0day` first try their MCP tools (`run_security_assessment`, `analyze_for_zero_day_vulnerabilities`); if those aren't reachable, they fall back to the bundle's checklists / language packs and run the workflow with the assistant's built-in tools (Read/Grep/Glob/Bash).
+- `/threatmodel` is independent — different methodology (STRIDE/DREAD), different output (attack trees, mitigation matrix). It does not consume bundle resources.
+
 ## Adapting the skills
 
-### Tailoring `security-assessment` to your stack
+### Tailoring the canonical reviewer (`Security-automated-claude-skills/`)
 
-The skill auto-detects stack via `Stack detection results`, but you can constrain it:
+Add coverage without forking the SKILL.md:
+
+- **Add a language** — drop `languages/<lang>.md` into `.claude/skills/security-reviewer/languages/` following the same structure as the existing packs (diagnostic patterns + framework-specific gotchas + OWASP/ASVS mapping). Add the manifest pattern for it to the `Routing` table in `SKILL.md`.
+- **Tighten the package guard** — add lines to `.claude/security/blocklist.txt` in `ecosystem:pkgname` form (e.g., `npm:event-stream`).
+- **Adjust quickscan severities** — edit the `add_finding` calls in `hooks/post-edit-quickscan.sh`.
+- **Override checklists** — create a project-local `checklists/` next to the SKILL with your own files; the SKILL reads from its own `checklists/` first, but you can vendor your overrides into the project copy after install.
+
+### Tailoring `security-assessment`
 
 - **Scope** — pass `backend`, `frontend`, or specific OWASP categories (`A01,A03`) as the slash command arg.
-- **Custom rules** — add a `rules/` folder next to `Security-reviewr/security-reviewer.md` with `.mdc` files (the reviewer file documents the convention as optional extension points).
-- **Custom checklists** — drop `checklists/owasp-checklist.md` or `checklists/asvs-l1-checklist.md` next to the skill to override the defaults.
+- **Budget cap** — pass `budget=N.NN` to constrain MCP cost (when MCP is reachable).
+- **No MCP?** — the skill auto-falls back to the bundle's checklists. Customize that path by editing the bundle's `checklists/owasp-asvs.md`.
 
-### Adapting the parameterized testers
+### Tailoring `0day-scanner`
 
-`Security-Analysis-Agent/security-tester-{backend,frontend}-generic.md` are technology-agnostic templates. They contain `{{PLACEHOLDERS}}` (`{{STACK_NAME}}`, `{{BACKEND_FRAMEWORK}}`, `{{ROUTE_ANNOTATION}}`, etc.).
+- **Base ref** — pass it as the slash command arg (default `main`).
+- **Mode** — light/standard/deep (default light; the slash command auto-promotes to standard for >50 changed files).
+- **No MCP?** — falls back to the bundle's `languages/*.md` packs scoped to the diff. Customize by editing those packs.
 
-Two options to hydrate:
+### Tailoring `threat-modeling`
 
-1. **Manual** — copy the `.md` to your repo, find/replace each `{{TOKEN}}` per the ADAPTATION MANIFEST table in the file.
+- **Knowledge graph** — if your repo is indexed, the skill extracts architecture automatically. Otherwise it falls back to code analysis (`git ls-files` + import graph heuristics).
+- **Business context** — paste industry / compliance constraints when invoking `/threatmodel` to enrich DREAD scoring.
+- **Architecture diagrams** — supply image paths; the skill uses vision to extract components and trust boundaries.
+
+### Adapting the parameterized testers (`Security-Analysis-Agent/`)
+
+`security-tester-{backend,frontend}-generic.md` are technology-agnostic templates with `{{PLACEHOLDERS}}` (`{{STACK_NAME}}`, `{{BACKEND_FRAMEWORK}}`, `{{ROUTE_ANNOTATION}}`, etc.).
+
+To hydrate:
+
+1. **Manual** — copy the `.md` to your repo, find/replace each `{{TOKEN}}` per the ADAPTATION MANIFEST table at the top of the file.
 2. **Scripted** — use the bash hydration script in the companion runbook
    (`security-testing-runbook-{backend,frontend}-generic.md §16`).
 
 Once hydrated, treat the resulting file as a stack-specific Claude Code skill: drop it under `.claude/skills/` or invoke directly.
-
-### Adapting `threat-modeling`
-
-The skill expects optional inputs:
-
-- **Knowledge graph** — if your repo is indexed, set the relevant env / config so the skill can extract architecture automatically. Otherwise it falls back to code analysis.
-- **Business context** — paste industry / compliance constraints when invoking `/threatmodel` to enrich DREAD scoring.
-- **Architecture diagrams** — supply image paths; the skill uses vision to extract components.
-
-### Adapting `Security-reviewr`
-
-The 8-point check and ripgrep patterns in `security-reviewer.md` are language-light but optimized for Python/JS/Kotlin patterns. To extend:
-
-- Add language-specific patterns to the **Diagnostic Patterns** block (e.g., Go SSRF: `http\.Get|http\.NewRequest`).
-- Add a project-specific `rules/sec-*.mdc` file (referenced as optional extension points in the skill).
 
 ---
 

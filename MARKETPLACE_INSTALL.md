@@ -89,6 +89,20 @@ claude-code install plugin:cti-search-plugin
 - **Dependencies**: None (pure instruction-based)
 - **Install Command**: `claude-code install skill:project-documentation`
 
+#### Security Assessment Suite
+- **Marketplace ID**: `security-assessment-suite`
+- **Description**: Four AppSec slash commands (`/security-0day`, `/security-review`, `/security-assessment`, `/threatmodel`) plus four active hooks (SessionStart project fingerprint + dep audit, PreToolUse package-install guard, PostToolUse pattern quickscan, SessionEnd 0-day reminder) and a multi-language pre-merge reviewer subagent
+- **Use Cases**: Pre-PR diff scanning, endpoint/auth/render review, full OWASP Top 10 + ASVS L1 audits, STRIDE/DREAD threat modeling, malicious-package install gating, per-write pattern scanning
+- **Dependencies**:
+  - **Required**: bash, ripgrep (already required by Claude Code).
+  - **Recommended**: `jq` (for clean `.claude/settings.json` merge — installer falls back to copy-paste instructions if absent).
+  - **Optional**: `osv-scanner` for richer dependency audit at `SessionStart` (falls back to ecosystem-native tools: `npm audit`, `pip-audit`, `cargo audit`, `govulncheck`, `bundle audit`).
+- **Install Command**: After installing the marketplace package, run from your project root:
+  ```bash
+  bash "skills/Security Assessment/install/install.sh" --full
+  ```
+  The marketplace install puts the suite under `skills/Security Assessment/`. The local `install.sh` then wires slash commands, the subagent, and hooks into `.claude/`. Use `--lite` for the SessionEnd reminder only (no active hooks, no subagent), `--dry-run` to preview, or `--uninstall` to remove cleanly.
+
 ### Plugins
 
 #### CTI Search Plugin
@@ -134,6 +148,28 @@ ls ~/.claude/plugins/cti-search-plugin/
 # Verify dependencies
 cd ~/.claude/plugins/cti-search-plugin
 npm list
+```
+
+**For the Security Assessment Suite (post-install wiring step):**
+```bash
+# From your project root, after the marketplace package places the suite
+# under skills/Security Assessment/ :
+bash "skills/Security Assessment/install/install.sh" --full
+
+# Verify
+ls .claude/commands/                   # 4 *.md files: security-0day, security-review, security-assessment, threatmodel
+ls .claude/agents/                     # security-reviewer.md (full preset only)
+cat .claude/settings.json              # SessionStart / PreToolUse / PostToolUse / SessionEnd hook entries
+
+# Smoke test the SessionEnd reminder
+bash "skills/Security Assessment/install/hooks/session-end-security-0day.sh"
+
+# In Claude Code, type /  → confirm the four security commands appear.
+```
+
+To uninstall just the suite (preserves the rest of `.claude/`):
+```bash
+bash "skills/Security Assessment/install/install.sh" --uninstall
 ```
 
 ### 2. Configure API Keys

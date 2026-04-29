@@ -21,7 +21,7 @@ matches what you're doing right now.
 | [`security-assessment/`](./security-assessment/SKILL.md) | Full OWASP Top 10 (2025) + ASVS Level 1 sweep | High (~$8–$10 per run) | Pre-release, compliance, post-incident |
 | [`threat-modeling/`](./threat-modeling/SKILL.md) | Automated STRIDE/DREAD threat model with attack trees and mitigation mapping | Medium | Architecture review, new feature design, compliance docs |
 | [`Security-Analysis-Agent/`](./Security-Analysis-Agent/) | Parameterized backend/frontend tester + runbook templates (technology-agnostic, hydrate placeholders before use) | n/a (templates) | Drop-in scaffolding for stack-specific testing |
-| [`Security-automated-claude-skills/`](./Security-automated-claude-skills%20/) | **Advanced bundle** — multi-language reviewer skill + subagent + 3 active hooks (SessionStart fingerprint, PreToolUse Bash guard, PostToolUse quickscan) | Low | Drop-in `.claude/` with continuous in-session security context (complements the SessionEnd reminder in `install/`) |
+| [`Security-automated-claude-skills/`](./Security-automated-claude-skills/) | **Advanced bundle** — multi-language reviewer skill + subagent + 3 active hooks (SessionStart fingerprint, PreToolUse Bash guard, PostToolUse quickscan) | Low | Drop-in `.claude/` with continuous in-session security context (complements the SessionEnd reminder in `install/`) |
 | [`install/`](./install/) | Slash commands, hooks, Windsurf rules/workflows, Codex `AGENTS.md` snippet | n/a | Wire the skills into your tool of choice |
 
 > **No redundancy.** The four skills cover non-overlapping scopes (diff vs review vs sweep vs design). Don't merge them.
@@ -107,7 +107,7 @@ into your project's `.claude/settings.json`:
 
 The script bails silently if you're not on a feature branch or there's no diff. Disable any time with `SECURITY_0DAY_HOOK_DISABLED=1` in your environment, or by removing the entry.
 
-**3. (Optional) Advanced active hooks** — for continuous in-session security context (not just end-of-session), see the [`Security-automated-claude-skills/`](./Security-automated-claude-skills%20/) bundle. It ships a `.claude/` directory with three additional hooks (SessionStart fingerprint, PreToolUse Bash guard, PostToolUse quickscan on every file write) and a stronger multi-language reviewer subagent. Use it instead of, or alongside, the SessionEnd reminder. Read its `README.md` for install steps — the two install paths can coexist.
+**3. (Optional) Advanced active hooks** — for continuous in-session security context (not just end-of-session), see the [`Security-automated-claude-skills/`](./Security-automated-claude-skills/) bundle. It ships a `.claude/` directory with three additional hooks (SessionStart fingerprint, PreToolUse Bash guard, PostToolUse quickscan on every file write) and a stronger multi-language reviewer subagent. Use it instead of, or alongside, the SessionEnd reminder. Read its `README.md` for install steps — the two install paths can coexist.
 
 **4. Verify**
 

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+
+  "_comment_security_reviewer": "Hook wiring for the security-reviewer skill. Three hooks: SessionStart fingerprints the project and runs a fast dep audit; PreToolUse on Bash gates package-manager invocations; PostToolUse on Edit/Write/MultiEdit runs a quick pattern scan on every file write. All three feed back to whichever agent is running.",
+
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/session-start.sh",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pre-bash-package-guard.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-edit-quickscan.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

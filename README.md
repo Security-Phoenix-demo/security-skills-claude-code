@@ -97,6 +97,9 @@ Plugins provide executable functionality via MCP (Model Context Protocol) server
 
 ### Feature Descriptor — Phoenix Pipeline
 
+![Shift Security Left at the PRD Stage](images/prd-pipeline.jpg)
+
+
 The **Phoenix Pipeline** is a 12-role specification system for producing rigorous, security-aware product requirements. Each role is a dedicated skill file.
 
 | Role | Skill File | Purpose |

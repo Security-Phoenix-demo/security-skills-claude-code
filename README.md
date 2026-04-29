@@ -15,6 +15,7 @@
 ![Overview-Repo](images/Phoenix-Skills-Overview-2.jpg)
 
 
+- [Powered by Phoenix Security — Open-Source Companion to the Platform](#powered-by-phoenix-security--open-source-companion-to-the-platform)
 - [What Is This Repository?](#what-is-this-repository)
 - [What's Included](#whats-included)
   - [Skills](#skills)
@@ -48,6 +49,30 @@
 ---
 
 ## Overview
+
+---
+
+## Powered by Phoenix Security — Open-Source Companion to the Platform
+
+This repository is the **open-source companion** to the **[Phoenix Security](https://phoenix.security)** platform. Each skill here distills a slice of what Phoenix does at platform scale into something you can run locally inside Claude Code. If a skill earns its keep in your workflow and you need it across hundreds of repos, with real reachability data, exploit chains, and team-level SLAs, the corresponding Phoenix product area is where to go next.
+
+### Phoenix Platform — Four Unified Product Areas
+
+| Area | Tagline | What it does | Open-source slice in this repo |
+|---|---|---|---|
+| **🟠 Orange — Attribution & Prioritization** | One backlog per team | Single backlog with code→cloud reachability and business context. Normalizes 30+ scanners, dedupes, and routes to owners with SLAs. | — (platform-only) |
+| **🟣 [Purple — Identification & Prevention](https://phoenix.security/phoenix-purple-ai-sast-sca-ai-generated-code/)** | Stop bad code before merge | Graph-powered SAST and exploit intelligence. Traces real taint paths, composes multi-step chains, prevents issues at PR and agent time. | **[Security Assessment Suite](skills/Security%20Assessment/)** + **[OpenGrep Rule Generator](skills/opengrep-rule-generator/)** + **[Secure PRD Generator](skills/secure-prd-skill/)** |
+| **🔵 [Blue — Threat Intelligence & Supply-Chain Firewall](https://phoenix.security/phoenix-blue-ai-vulnerability-intelligence-cve-scoring/)** | Block bad packages before install | Adversarially validated intelligence fused into a single decision. Enforces at agent, install, CI, and deploy to block malicious or unsafe packages pre-execution. | **[CTI Domain Research](skills/cti-search-skill/)** + **[NotebookLM Connector](skills/notebooklm/)** + the **PreToolUse Bash package guard hook** in the Security Assessment Suite |
+| **🟢 Green — Agentic Remediation** | Minimal-diff fix PRs | Minimal-diff PRs, safe alternatives, negative tests, and change plans tied to proven attack paths. Closes the loop with measurable risk reduction. | — (platform-only — coming to OSS) |
+
+**When the open-source skills aren't enough:**
+
+- **Need cross-repo reachability and prioritization?** → Phoenix Orange
+- **Need multi-step taint analysis with real exploit chains?** → [Phoenix Purple](https://phoenix.security/phoenix-purple-ai-sast-sca-ai-generated-code/)
+- **Need adversarially validated CVE intel + install-time blocking?** → [Phoenix Blue](https://phoenix.security/phoenix-blue-ai-vulnerability-intelligence-cve-scoring/)
+- **Need agentic remediation with measurable risk reduction?** → Phoenix Green
+
+The skills in this repo are designed to be useful on day one, with no Phoenix backend required. They share Phoenix's design philosophy: short feedback loops, severity-ranked findings, no padding, no 30-page reports.
 
 ---
 

@@ -1,8 +1,15 @@
 # Security Assessment Skills Suite
 
+Most security review still happens at the wrong end of the cycle. The diff is fat, the deadline is closer than you'd like, and the reviewer (you, or someone you've roped in) is staring at three hundred files trying to remember which ones touched auth. By that point, anything beyond "looks fine" is a stretch.
+The Security Assessment Skills Suite is a set of four commands that move that work earlier. Not all the way to the left — there's no shifting your way out of judgement — but earlier enough that the review fits the change instead of the calendar. It plugs into Claude Code, Windsurf, and Codex, and on Claude Code it ships three hooks that catch obvious things before the human even sees the diff.
+
+![Security Assessment Suite — four AppSec skills and active hooks for Claude Code](images/Security-automation-agents.jpg)
+This repo contains: 
 A bundle of four complementary security skills plus parameterized testing runbooks.
 Each skill solves a different problem at a different price point — pick the one that
 matches what you're doing right now.
+
+This suite is the **open-source companion** to **[Phoenix Purple](https://phoenix.security/phoenix-purple-ai-sast-sca-ai-generated-code/)** — Phoenix Security's enhanced AppSec and remediation product. The skills here distill the same thinking (pre-merge AppSec review, OWASP/ASVS coverage, threat-model-driven design) into commands you can run inside Claude Code, Windsurf, or Codex without a backend. If you need graph-powered SAST with real taint paths, multi-step exploit chains, and PR-time + agent-time enforcement, that's [Phoenix Purple](https://phoenix.security/phoenix-purple-ai-sast-sca-ai-generated-code/). For threat-intelligence-driven supply-chain blocking, see **[Phoenix Blue](https://phoenix.security/phoenix-blue-ai-vulnerability-intelligence-cve-scoring/)** — the package guard hook in this suite is a minimal local stand-in for what Blue does at platform scale.
 
 > **TL;DR**
 > - End of a coding cycle / before opening a PR → **`/security-0day`** (cheap, fast, diff-only)

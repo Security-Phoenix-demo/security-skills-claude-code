@@ -1,0 +1,35 @@
+name: Shell scripts
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find shell scripts
+        id: find
+        run: |
+          files=$(find . -name '*.sh' -not -path './node_modules/*')
+          echo "files<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$files" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: bash -n syntax check
+        run: |
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            echo "checking $f"
+            bash -n "$f"
+          done <<< "${{ steps.find.outputs.files }}"
+
+      - name: shellcheck
+        run: |
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            shellcheck --severity=error "$f"
+          done <<< "${{ steps.find.outputs.files }}"

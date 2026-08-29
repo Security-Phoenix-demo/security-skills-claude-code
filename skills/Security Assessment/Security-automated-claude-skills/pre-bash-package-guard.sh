@@ -61,11 +61,13 @@ declare -A PM_PATTERNS=(
 
 ECO=""
 PM=""
+MATCHED=""
 for key in "${!PM_PATTERNS[@]}"; do
   pat="${PM_PATTERNS[$key]}"
   if [[ "$CMD" =~ $pat ]]; then
     ECO="${key%%:*}"
     PM="${key##*:}"
+    MATCHED="${BASH_REMATCH[0]}"
     break
   fi
 done
@@ -78,10 +80,12 @@ fi
 log "package install detected: ecosystem=$ECO pm=$PM"
 
 # ---- Extract package names from the command ----
-# Strip the package-manager prefix and flags. This is heuristic; we err on the
-# side of catching extra tokens (which then get filtered by the validity check).
-TAIL="$(printf '%s' "$CMD" \
-  | sed -E "s/.*${PM}[[:space:]]+(install|i|add|require|get|package)[[:space:]]+//" \
+# Strip the package-manager prefix and flags, using the exact text the
+# detection regex matched (not a reconstructed "$PM install" guess — that
+# guess never matches "pip3 install" or "go get", since PM is "pip"/"goget",
+# leaving the whole command unstripped and "pip3"/"go"/"get" treated as
+# package names). This is heuristic; extra tokens get filtered below anyway.
+TAIL="$(printf '%s' "${CMD#*"$MATCHED"}" \
   | tr ' ' '\n' \
   | grep -E -v '^(-|--)' \
   | grep -E -v '^(install|add|i|--save|--save-dev|--dev|-D|-g|--global)$' \
@@ -154,11 +158,18 @@ print(dp[n])
 # Strip version specifiers and scope prefix for matching
 clean_pkg() {
   local p="$1"
-  # strip @scope/ prefix temporarily for distance check; keep for blocklist
-  p="${p%@*}"           # strip @version (npm: react@18 -> react; scoped @scope/x stays)
-  p="${p%[[<>=!~^]*}"   # strip pip/cargo specifiers like ==1.0
+  local scope=""
+  # pull off @scope/ first — otherwise the leading @ of a scoped, unversioned
+  # package (e.g. "@types/node") gets misread as a version separator below
+  # and clean_pkg returns "", silently skipping the package entirely.
+  if [[ "$p" == @*/* ]]; then
+    scope="${p%%/*}/"
+    p="${p#*/}"
+  fi
+  p="${p%@*}"            # strip @version (react@18 -> react)
+  p="${p%%[[<>=!~^]*}"   # strip pip/cargo specifiers like ==1.0 (longest match, else trailing "=" remains)
   p="${p%:*}"            # strip composer vendor:
-  printf '%s' "$p"
+  printf '%s' "${scope}${p}"
 }
 
 is_blocklisted() {

@@ -255,7 +255,6 @@ Note: The MCP server uses the same Patchright library but via TypeScript/npm eco
 
 ### Dependencies
 - **patchright==1.55.2**: Browser automation
-- **python-dotenv==1.0.0**: Environment configuration
 - Automatically installed in `.venv` on first use
 
 ### Data Storage

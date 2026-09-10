@@ -11,21 +11,30 @@ description: >
   (4) a downloadable formatted markdown,
   (5) optionally: Linear/Asana tasks from the batch plan, Slack notification to stakeholders,
   Notion page mirror. Always use this skill for PRD and feature planning tasks.
-compatibility:
-  mcp_connectors:
-    - Atlassian   # Confluence page creation — PRIMARY (always attempt)
-    - Slack        # Stakeholder notification — OPTIONAL
-    - Linear       # Batch → tickets — OPTIONAL
-    - Asana        # Batch → tasks — OPTIONAL
-    - Notion       # Mirror doc — OPTIONAL
-    - Gmail        # Send PRD to stakeholders — OPTIONAL
-  tools:
-    - present_files
-    - create_file
-    - bash_tool
 ---
 
 # PRD Generator — Security-Focused
+
+## What this skill can talk to
+
+None of these are required — the PRD is produced either way, and a missing connector
+degrades to a local file rather than an error.
+
+| MCP connector | Used for | Priority |
+|---|---|---|
+| Atlassian | Confluence page creation | **Primary** — always attempt |
+| Slack | Stakeholder notification | Optional |
+| Linear | Batch plan → tickets | Optional |
+| Asana | Batch plan → tasks | Optional |
+| Notion | Mirror doc | Optional |
+| Gmail | Send the PRD to stakeholders | Optional |
+
+Tools it expects: `present_files`, `create_file`, `bash_tool`.
+
+> This list used to live in a `compatibility:` frontmatter key. The Agent Skills spec
+> allows only `name`, `description` and `allowed-tools`, and any extra key makes the
+> claude.ai upload fail with a hard error instead of being ignored — so it belongs in
+> the body.
 
 ## Customization (Required on First Use)
 

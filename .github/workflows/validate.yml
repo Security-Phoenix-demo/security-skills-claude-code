@@ -1,0 +1,175 @@
+name: validate
+
+# Every bug that has broken this marketplace was structural: a skill with no
+# frontmatter, a directory name with a space in it, two components claiming one slash
+# name, a SKILL.md citing a file that was never shipped. All of it is catchable in
+# seconds, and none of it was being checked.
+#
+# Two validators run here because they cover different ground:
+#   claude plugin validate      manifest schema and frontmatter shape
+#   scripts/validate-marketplace.py  whether the pieces actually fit together
+#
+# The CLI passes a marketplace whose source points at a missing directory, two skills
+# sharing a name, a SKILL.md whose name: disagrees with its directory, and a dead
+# references/ path. The script exists for exactly those.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  structure:
+    name: Structure and consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Stdlib only, so there is nothing to install.
+      - name: Marketplace, plugins, skills, commands, agents
+        run: python3 scripts/validate-marketplace.py
+
+  manifests:
+    name: Manifest schema (claude plugin validate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # `claude plugin validate` needs no API key and makes no network calls — checked
+      # against an empty, unauthenticated config directory.
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Marketplace manifest
+        run: claude plugin validate .
+
+      - name: Every plugin manifest
+        run: |
+          fail=0
+          for d in plugins/*/; do
+            echo "::group::${d}"
+            claude plugin validate --strict "$d" || fail=1
+            echo "::endgroup::"
+          done
+          exit $fail
+
+      - name: Every skill, command and agent
+        run: |
+          fail=0
+          for d in plugins/*/; do
+            for sub in skills commands agents; do
+              [ -d "$d$sub" ] || continue
+              echo "::group::${d}${sub}"
+              claude plugin validate --strict "$d$sub" || fail=1
+              echo "::endgroup::"
+            done
+          done
+          exit $fail
+
+  shell:
+    name: Shell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: bash -n
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            bash -n "$f" || { echo "::error file=$f::bash syntax error"; fail=1; }
+          done < <(find plugins scripts -name '*.sh' -type f)
+          exit $fail
+
+      # These hooks and the repo scanner run on developer laptops, which still ship
+      # bash 3.2. shellcheck catches the bashisms that only fail there — the class that
+      # silently disabled the package guard on macOS.
+      #
+      # Advisory for now: the inherited scripts have not been through shellcheck, so a
+      # hard failure would block every PR on a pre-existing backlog. Read the output,
+      # fix as you touch each file, then drop continue-on-error.
+      - name: shellcheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          fail=0
+          while IFS= read -r f; do
+            shellcheck -S warning "$f" || fail=1
+          done < <(find plugins scripts -name '*.sh' -type f)
+          exit $fail
+        continue-on-error: true
+
+  python:
+    name: Python syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile every .py
+        run: |
+          find plugins scripts -name '*.py' -type f -print0 \
+            | xargs -0 python3 -m py_compile
+          echo "all .py files compile"
+
+  secrets:
+    name: No committed secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: A real .env must never be committed
+        run: |
+          if find . -path ./.git -prune -o -name '.env' -type f -print | grep -q .; then
+            echo "::error::a committed .env was found — ship .env.example instead"
+            find . -path ./.git -prune -o -name '.env' -type f -print
+            exit 1
+          fi
+          echo "no .env files"
+
+      - name: Key-shaped literals outside examples and docs
+        run: |
+          python3 - <<'PY'
+          import os, re, sys
+          pat  = re.compile(r'(api[_-]?key|secret|password|passwd|token|private[_-]?key)\s*[:=]\s*["\']([^"\']{12,})["\']', re.I)
+          safe = re.compile(r'example|CHANGEME|your_|<your|placeholder|xxx|dummy|REPLACE|\.\.\.|sk-live-1234|eyJ\.token', re.I)
+          # A value containing $ is an interpolation, not a literal:
+          #   BRAVE_API_KEY="$DEFAULT_BRAVE_KEY"   <- reads a variable, ships no secret
+          interp = re.compile(r'[$]')
+          hits = []
+          for root, dirs, files in os.walk('.'):
+              dirs[:] = [d for d in dirs if d not in ('.git', 'node_modules', '.venv')]
+              for f in files:
+                  if f.endswith(('.md', '.example')):
+                      continue
+                  p = os.path.join(root, f)
+                  try:
+                      text = open(p, encoding='utf-8', errors='ignore').read()
+                  except OSError:
+                      continue
+                  for i, line in enumerate(text.split('\n'), 1):
+                      m = pat.search(line)
+                      if m and not safe.search(m.group(2)) and not interp.search(m.group(2)):
+                          hits.append(f"{p}:{i}: {line.strip()[:100]}")
+          for h in hits:
+              print(f"::error::{h}")
+          print(f"{len(hits)} suspicious literal(s)")
+          sys.exit(1 if hits else 0)
+          PY

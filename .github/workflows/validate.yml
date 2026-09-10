@@ -96,9 +96,13 @@ jobs:
       # bash 3.2. shellcheck catches the bashisms that only fail there — the class that
       # silently disabled the package guard on macOS.
       #
-      # Advisory for now: the inherited scripts have not been through shellcheck, so a
-      # hard failure would block every PR on a pre-existing backlog. Read the output,
-      # fix as you touch each file, then drop continue-on-error.
+      # This is a hard gate, not advisory. The first run surfaced exactly two findings
+      # and both were deliberate, so they carry an inline `shellcheck disable=` with the
+      # reason rather than a blanket exemption. Suppress a new finding the same way —
+      # with a comment saying why — or fix it.
+      #
+      # Note SC2207 in particular: its suggested fix is `mapfile`, which is bash 4 only.
+      # Taking that advice would break the very platform this check exists to protect.
       - name: shellcheck
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
@@ -107,7 +111,6 @@ jobs:
             shellcheck -S warning "$f" || fail=1
           done < <(find plugins scripts -name '*.sh' -type f)
           exit $fail
-        continue-on-error: true
 
   python:
     name: Python syntax

@@ -54,31 +54,44 @@ if [[ -z "$CMD" ]]; then
 fi
 
 # ---- Identify package-manager install commands ----
-# Patterns we care about (and the ecosystem each implies)
+# Patterns we care about (and the ecosystem each implies).
+#
+# The leading (^|[^[:alnum:]_-]) is a portable word boundary. \b is a GNU regex
+# extension: glibc implements it, BSD and macOS libc do not, and bash's =~ uses the
+# system regex library. Every pattern here used \b, so on macOS none of them matched
+# and this guard allowed every install without a word of warning. The class permits
+# / and . before the command name so a path invocation (/usr/local/bin/npm install)
+# still matches, while mynpm install does not.
+# Only BASH_REMATCH[0] is read below, so the extra leading group is harmless.
 declare -A PM_PATTERNS=(
-  ["nodejs:npm"]='\bnpm[[:space:]]+(install|i|add)[[:space:]]+'
-  ["nodejs:yarn"]='\byarn[[:space:]]+add[[:space:]]+'
-  ["nodejs:pnpm"]='\bpnpm[[:space:]]+(install|add|i)[[:space:]]+'
-  ["nodejs:bun"]='\bbun[[:space:]]+add[[:space:]]+'
-  ["python:pip"]='\bpip3?[[:space:]]+install[[:space:]]+'
-  ["python:uv"]='\buv[[:space:]]+add[[:space:]]+'
-  ["python:poetry"]='\bpoetry[[:space:]]+add[[:space:]]+'
-  ["python:pipenv"]='\bpipenv[[:space:]]+install[[:space:]]+'
-  ["go:goget"]='\bgo[[:space:]]+get[[:space:]]+'
-  ["rust:cargo"]='\bcargo[[:space:]]+add[[:space:]]+'
-  ["ruby:gem"]='\bgem[[:space:]]+install[[:space:]]+'
-  ["ruby:bundle"]='\bbundle[[:space:]]+add[[:space:]]+'
-  ["php:composer"]='\bcomposer[[:space:]]+(require|install)[[:space:]]+'
-  ["dotnet:add"]='\bdotnet[[:space:]]+add[[:space:]]+package[[:space:]]+'
+  ["nodejs:npm"]='(^|[^[:alnum:]_-])npm[[:space:]]+(install|i|add)[[:space:]]+'
+  ["nodejs:yarn"]='(^|[^[:alnum:]_-])yarn[[:space:]]+add[[:space:]]+'
+  ["nodejs:pnpm"]='(^|[^[:alnum:]_-])pnpm[[:space:]]+(install|add|i)[[:space:]]+'
+  ["nodejs:bun"]='(^|[^[:alnum:]_-])bun[[:space:]]+add[[:space:]]+'
+  ["python:pip"]='(^|[^[:alnum:]_-])pip3?[[:space:]]+install[[:space:]]+'
+  ["python:uv"]='(^|[^[:alnum:]_-])uv[[:space:]]+add[[:space:]]+'
+  ["python:poetry"]='(^|[^[:alnum:]_-])poetry[[:space:]]+add[[:space:]]+'
+  ["python:pipenv"]='(^|[^[:alnum:]_-])pipenv[[:space:]]+install[[:space:]]+'
+  ["go:goget"]='(^|[^[:alnum:]_-])go[[:space:]]+get[[:space:]]+'
+  ["rust:cargo"]='(^|[^[:alnum:]_-])cargo[[:space:]]+add[[:space:]]+'
+  ["ruby:gem"]='(^|[^[:alnum:]_-])gem[[:space:]]+install[[:space:]]+'
+  ["ruby:bundle"]='(^|[^[:alnum:]_-])bundle[[:space:]]+add[[:space:]]+'
+  ["php:composer"]='(^|[^[:alnum:]_-])composer[[:space:]]+(require|install)[[:space:]]+'
+  ["dotnet:add"]='(^|[^[:alnum:]_-])dotnet[[:space:]]+add[[:space:]]+package[[:space:]]+'
 )
 
 ECO=""
 PM=""
+PM_MATCH=""
 for key in "${!PM_PATTERNS[@]}"; do
   pat="${PM_PATTERNS[$key]}"
   if [[ "$CMD" =~ $pat ]]; then
     ECO="${key%%:*}"
     PM="${key##*:}"
+    # Keep the text the regex actually matched (e.g. "pip3 install ", "go get ").
+    # Captured here, while BASH_REMATCH still belongs to this match — any later
+    # =~ in this script would overwrite it.
+    PM_MATCH="${BASH_REMATCH[0]}"
     break
   fi
 done
@@ -91,10 +104,17 @@ fi
 log "package install detected: ecosystem=$ECO pm=$PM"
 
 # ---- Extract package names from the command ----
-# Strip the package-manager prefix and flags. This is heuristic; we err on the
-# side of catching extra tokens (which then get filtered by the validity check).
-TAIL="$(printf '%s' "$CMD" \
-  | sed -E "s/.*${PM}[[:space:]]+(install|i|add|require|get|package)[[:space:]]+//" \
+# Drop everything up to and including the matched "<pm> <subcommand> " prefix, then
+# filter flags. Heuristic: we err on the side of catching extra tokens, which the
+# validity check below then discards.
+#
+# This uses PM_MATCH — the exact substring the regex matched — rather than
+# rebuilding the prefix from the pattern key. Rebuilding was wrong whenever the key
+# is not the literal command text: key "python:pip" gives PM=pip, which never
+# matches "pip3 install", and key "go:goget" gives PM=goget, which never matches
+# "go get". In both cases nothing was stripped, so the command name itself leaked
+# into the package list as a pseudo-package (pip3, go, get).
+TAIL="$(printf '%s' "${CMD#*"$PM_MATCH"}" \
   | tr ' ' '\n' \
   | grep -E -v '^(-|--)' \
   | grep -E -v '^(install|add|i|--save|--save-dev|--dev|-D|-g|--global)$' \
@@ -166,12 +186,34 @@ print(dp[n])
 
 # Strip version specifiers and scope prefix for matching
 clean_pkg() {
-  local p="$1"
-  # strip @scope/ prefix temporarily for distance check; keep for blocklist
-  p="${p%@*}"           # strip @version (npm: react@18 -> react; scoped @scope/x stays)
-  p="${p%[[<>=!~^]*}"   # strip pip/cargo specifiers like ==1.0
-  p="${p%:*}"            # strip composer vendor:
-  printf '%s' "$p"
+  local p="$1" scope="" stripped
+
+  # Detach the @scope/ prefix of a scoped npm package before touching versions.
+  # Without this, the leading @ of an unversioned "@types/node" is read as the
+  # version separator, ${p%@*} returns the empty string, and the caller's
+  # `[[ -z "$cleaned" ]] && continue` drops the package before any check runs —
+  # a silent bypass of the blocklist, typosquat, brand-new and install-script
+  # checks. Reattached before returning, because the blocklist is keyed on the
+  # full scoped name.
+  if [[ "$p" == @*/* ]]; then
+    scope="${p%%/*}/"
+    p="${p#*/}"
+  fi
+
+  # Strip @version (react@18 -> react). Never let this blank the name: a token
+  # that is nothing but a version separator is malformed, and a malformed token
+  # must reach the checks rather than vanish.
+  stripped="${p%@*}"
+  [[ -n "$stripped" ]] && p="$stripped"
+
+  # Strip pip/cargo specifiers (requests==2.0 -> requests). %% not %: the shortest
+  # match leaves the first operator behind ("requesst==2.0" -> "requesst="), which
+  # no longer equals the blocklist key, so pinning a version downgraded a block to
+  # a prompt.
+  p="${p%%[[<>=!~^]*}"
+
+  p="${p%:*}"            # strip composer vendor: suffix
+  printf '%s' "$scope$p"
 }
 
 is_blocklisted() {

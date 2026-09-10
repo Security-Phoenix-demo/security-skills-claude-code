@@ -1,0 +1,11 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "phoenix-readiness-reviews",
+  "version": "1.0.0",
+  "description": "Two adversarial review gates. plan-readiness-review asks whether a PRD, spec or RFC is implementable without inventing anything. production-readiness-review asks whether the code is actually built, wired, tested and safe to deploy, backed by a deterministic repo scanner.",
+  "author": { "name": "Phoenix Security", "email": "admin@phoenix.security", "url": "https://phoenix.security" },
+  "homepage": "https://github.com/Security-Phoenix-demo/security-skills-claude-code",
+  "repository": "https://github.com/Security-Phoenix-demo/security-skills-claude-code",
+  "license": "MIT",
+  "keywords": ["review", "prd", "spec-review", "production-readiness", "qa", "code-review", "ship-gate"]
+}

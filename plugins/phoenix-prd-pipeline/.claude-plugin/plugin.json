@@ -1,0 +1,11 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "phoenix-prd-pipeline",
+  "version": "1.0.0",
+  "description": "Security-first specification pipeline. prd-generator writes a full PRD with a threat model from a plain-language feature description. The 12 phoenix-* roles run the same pipeline stage by stage: context curation, scope, constraints, RFC 2119 requirements, ambiguity hunting, threat model, API contracts, verification matrix, delivery batches and a final ship gate.",
+  "author": { "name": "Phoenix Security", "email": "admin@phoenix.security", "url": "https://phoenix.security" },
+  "homepage": "https://github.com/Security-Phoenix-demo/security-skills-claude-code",
+  "repository": "https://github.com/Security-Phoenix-demo/security-skills-claude-code",
+  "license": "MIT",
+  "keywords": ["prd", "spec", "requirements", "threat-modeling", "rfc2119", "product", "planning", "security"]
+}

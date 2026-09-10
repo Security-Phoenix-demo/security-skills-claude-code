@@ -1,0 +1,11 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "phoenix-cti-search",
+  "version": "1.0.0",
+  "description": "Cyber threat intelligence search across 595 curated security domains in 4 authority tiers, for CVEs, threat actors, malware families, exploits and breach reports. Ships a skill that needs no API key, a Node CLI, an MCP server, and a /cti-search command. Optional push to NotebookLM.",
+  "author": { "name": "Phoenix Security", "email": "admin@phoenix.security", "url": "https://phoenix.security" },
+  "homepage": "https://github.com/Security-Phoenix-demo/security-skills-claude-code",
+  "repository": "https://github.com/Security-Phoenix-demo/security-skills-claude-code",
+  "license": "MIT",
+  "keywords": ["cti", "threat-intelligence", "cve", "malware", "osint", "security-research", "mcp"]
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "phoenix-sast-rules",
+  "version": "1.0.0",
+  "description": "Generate opengrep/semgrep SAST rules for 30+ languages, including pattern and taint-mode rules. The research variant first researches a CVE or CWE with web search, then writes targeted detection rules from the findings.",
+  "author": { "name": "Phoenix Security", "email": "admin@phoenix.security", "url": "https://phoenix.security" },
+  "homepage": "https://github.com/Security-Phoenix-demo/security-skills-claude-code",
+  "repository": "https://github.com/Security-Phoenix-demo/security-skills-claude-code",
+  "license": "MIT",
+  "keywords": ["sast", "opengrep", "semgrep", "static-analysis", "cve", "cwe", "detection-rules", "security"]
+}

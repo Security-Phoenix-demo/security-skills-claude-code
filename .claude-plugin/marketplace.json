@@ -1,0 +1,57 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-marketplace.json",
+  "name": "phoenix-security",
+  "description": "Phoenix Security skills for Claude Code: AppSec review, threat modelling, SAST rule generation, CTI research, security-first PRDs, readiness gates, and documentation automation.",
+  "owner": {
+    "name": "Phoenix Security",
+    "email": "admin@phoenix.security",
+    "url": "https://phoenix.security"
+  },
+  "metadata": {
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "phoenix-security-review",
+      "source": "./plugins/phoenix-security-review",
+      "description": "AppSec review suite: multi-language security-reviewer, whole-repo security-assessment, diff-scoped 0day-scanner, STRIDE/DREAD threat-modeling, and two threat-model-driven review tiers. 6 skills, 4 commands, 1 subagent, 3 opt-in hooks.",
+      "category": "security",
+      "keywords": ["security", "appsec", "owasp", "asvs", "threat-modeling", "code-review"]
+    },
+    {
+      "name": "phoenix-readiness-reviews",
+      "source": "./plugins/phoenix-readiness-reviews",
+      "description": "Two adversarial gates: is the plan implementable, and is the code actually shippable. Counted READY / NOT READY and SHIP / NO-SHIP verdicts with a deterministic repo scanner.",
+      "category": "code-quality",
+      "keywords": ["review", "prd", "production-readiness", "qa", "ship-gate"]
+    },
+    {
+      "name": "phoenix-sast-rules",
+      "source": "./plugins/phoenix-sast-rules",
+      "description": "Generate opengrep/semgrep SAST rules for 30+ languages, with an optional CVE/CWE research pass first.",
+      "category": "security",
+      "keywords": ["sast", "opengrep", "semgrep", "static-analysis", "cve", "cwe"]
+    },
+    {
+      "name": "phoenix-cti-search",
+      "source": "./plugins/phoenix-cti-search",
+      "description": "Threat intelligence search across 595 curated security domains in 4 authority tiers. Skill needs no API key; bundled Node CLI, MCP server and /cti-search command.",
+      "category": "security",
+      "keywords": ["cti", "threat-intelligence", "cve", "malware", "osint"]
+    },
+    {
+      "name": "phoenix-prd-pipeline",
+      "source": "./plugins/phoenix-prd-pipeline",
+      "description": "Security-first specification pipeline: a one-shot PRD generator plus 12 stage-by-stage roles from context curation to a final ship gate.",
+      "category": "productivity",
+      "keywords": ["prd", "spec", "requirements", "threat-modeling", "planning"]
+    },
+    {
+      "name": "phoenix-docs-research",
+      "source": "./plugins/phoenix-docs-research",
+      "description": "Documentation and research: a 6-mode self-healing project documenter, a NotebookLM connector for citation-backed answers, and a web + YouTube research pipeline.",
+      "category": "documentation",
+      "keywords": ["documentation", "research", "notebooklm", "architecture-docs"]
+    }
+  ]
+}

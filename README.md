@@ -6,7 +6,54 @@
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skills%20%26%20Plugins-blueviolet)](https://claude.ai)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-> Search 595+ threat intelligence sources, generate opengrep/semgrep SAST rules for 30+ languages, create security-focused product requirements with STRIDE threat models, query NotebookLM for citation-backed research, and auto-generate living project documentation — all from your terminal with Claude Code.
+> Search 595+ threat intelligence sources, generate opengrep/semgrep SAST rules for 30+ languages, create security-focused product requirements with STRIDE threat models, review a plan or a codebase before it ships, query NotebookLM for citation-backed research, and auto-generate living project documentation — all from your terminal with Claude Code.
+
+---
+
+## Install in 30 seconds
+
+Everything in this repository installs as **six Claude Code plugins** from one marketplace.
+Paste this into Claude Code:
+
+```
+/plugin marketplace add Security-Phoenix-demo/security-skills-claude-code
+/plugin install phoenix-security-review@phoenix-security
+/plugin install phoenix-readiness-reviews@phoenix-security
+/plugin install phoenix-sast-rules@phoenix-security
+/plugin install phoenix-cti-search@phoenix-security
+/plugin install phoenix-prd-pipeline@phoenix-security
+/plugin install phoenix-docs-research@phoenix-security
+```
+
+Install only the plugins you want — each one stands alone. Full detail, team-wide
+auto-install, and troubleshooting: **[Marketplace Installation Guide](MARKETPLACE_INSTALL.md)**.
+
+---
+
+## New — Readiness Review Gates
+
+Two adversarial review gates that answer the two questions that actually decide whether
+work is ready to move: **is the plan implementable**, and **is the code actually shippable**.
+
+![Plan readiness and production readiness — the two gates side by side, their focus areas and their verdicts](images/PRD-IMp-skill.jpeg)
+
+| Skill | Input | Question it answers | Verdict |
+|---|---|---|---|
+| `plan-readiness-review` | PRD, plan, spec, RFC, design doc | Could a different senior engineer build this without inventing requirements, schemas, API contracts or error handling? | **READY / NOT READY** |
+| `production-readiness-review` | Repo + branch + the plan | Is it actually built, wired, tested, and safe to deploy? | **SHIP / NO-SHIP** |
+
+Both refuse to hand you an invented number. Percentages carry counts (`68% (23/34 VERIFIED)`),
+results are three-state (VERIFIED / GAP / UNVERIFIABLE) so "I could not check this" stops
+collapsing into a pass, and every absence claim must cite the search that returned zero hits.
+`production-readiness-review` runs a **deterministic repo scanner** first, so its evidence is
+reproducible and two runs diff cleanly instead of depending on what the model happened to read.
+
+```
+/plugin install phoenix-readiness-reviews@phoenix-security
+```
+
+Then just ask — or type `/plan-readiness-review` / `/production-readiness-review`.
+Full reference: [Readiness & Review Gates](#readiness--review-gates).
 
 ---
 
@@ -15,31 +62,34 @@
 ![Overview-Repo](images/Phoenix-Skills-Overview-2.jpg)
 
 
+- [Install in 30 seconds](#install-in-30-seconds)
+- [New — Readiness Review Gates](#new--readiness-review-gates)
 - [Powered by Phoenix Security — Open-Source Companion to the Platform](#powered-by-phoenix-security--open-source-companion-to-the-platform)
 - [What Is This Repository?](#what-is-this-repository)
 - [What's Included](#whats-included)
-  - [Skills](#skills)
-  - [Plugins](#plugins)
+  - [The six plugins](#the-six-plugins)
+  - [All 27 skills](#all-27-skills)
   - [Feature Descriptor — Phoenix Pipeline](#feature-descriptor--phoenix-pipeline)
 - [Quick Start](#quick-start)
 - [Repository Structure](#repository-structure)
+- [Readiness & Review Gates](#readiness--review-gates)
 - [Research & Intelligence Skills](#research--intelligence-skills)
-  - [1. CTI Domain Research](#1-cti-domain-research)
-  - [2. NotebookLM Connector](#2-notebooklm-connector)
-  - [3. Global Research Pipeline](#3-global-research-pipeline)
+  - [1. CTI Domain Research](#1-cti-domain-research--automated-threat-intelligence-gathering)
+  - [2. NotebookLM Connector](#2-notebooklm-connector--source-grounded-ai-research-with-zero-hallucinations)
+  - [3. Global Research Pipeline](#3-global-research-pipeline--automated-intelligence-collection-and-ingestion)
 - [Security Generation & Remediation Skills](#security-generation--remediation-skills)
-  - [1. Secure PRD Generator](#1-secure-prd-generator)
-  - [2. OpenGrep Rule Generator](#2-opengrep-rule-generator)
-  - [3. OpenGrep Rule Generator Research](#3-opengrep-rule-generator-research)
-  - [4. Project Documentation](#4-project-documentation)
-  - [5. Security Assessment Suite](#5-security-assessment-suite)
+  - [1. Secure PRD Generator](#1-secure-prd-generator--shift-security-left-to-the-requirements-stage)
+  - [2. OpenGrep Rule Generator](#2-opengrep-rule-generator--ai-powered-sast-rule-creation)
+  - [3. OpenGrep Rule Generator Research](#3-opengrep-rule-generator-research--vulnerability-first-detection-engineering)
+  - [4. Project Documentation](#4-project-documentation--turn-any-codebase-into-living-documentation)
+  - [5. Security Assessment Suite](#5-security-assessment-suite--four-appsec-skills--active-hooks)
 - [Plugins Reference](#plugins-reference)
   - [CTI Search Plugin](#1-cti-search-plugin)
   - [Secure PRD Plugin](#2-secure-prd-plugin)
 - [Phoenix Pipeline — Feature Descriptor](#phoenix-pipeline--feature-descriptor)
 - [Domain Tiers](#domain-tiers)
 - [NotebookLM Integration](#notebooklm-integration)
-- [Configuration](#configuration)
+- [Configuration](#configuration--customization)
 - [Contributing](#contributing)
 - [Frequently Asked Questions (FAQ)](#frequently-asked-questions-faq)
 - [License](#license)
@@ -61,8 +111,8 @@ This repository is the **open-source companion** to the **[Phoenix Security](htt
 | Area | Tagline | What it does | Open-source slice in this repo |
 |---|---|---|---|
 | **🟠 Orange — Attribution & Prioritization** | One backlog per team | Single backlog with code→cloud reachability and business context. Normalizes 30+ scanners, dedupes, and routes to owners with SLAs. | — (platform-only) |
-| **🟣 [Purple — Identification & Prevention](https://phoenix.security/phoenix-purple-ai-sast-sca-ai-generated-code/)** | Stop bad code before merge | Graph-powered SAST and exploit intelligence. Traces real taint paths, composes multi-step chains, prevents issues at PR and agent time. | **[Security Assessment Suite](skills/Security%20Assessment/)** + **[OpenGrep Rule Generator](skills/opengrep-rule-generator/)** + **[Secure PRD Generator](skills/secure-prd-skill/)** |
-| **🔵 [Blue — Threat Intelligence & Supply-Chain Firewall](https://phoenix.security/phoenix-blue-ai-vulnerability-intelligence-cve-scoring/)** | Block bad packages before install | Adversarially validated intelligence fused into a single decision. Enforces at agent, install, CI, and deploy to block malicious or unsafe packages pre-execution. | **[CTI Domain Research](skills/cti-search-skill/)** + **[NotebookLM Connector](skills/notebooklm/)** + the **PreToolUse Bash package guard hook** in the Security Assessment Suite |
+| **🟣 [Purple — Identification & Prevention](https://phoenix.security/phoenix-purple-ai-sast-sca-ai-generated-code/)** | Stop bad code before merge | Graph-powered SAST and exploit intelligence. Traces real taint paths, composes multi-step chains, prevents issues at PR and agent time. | **[Security Assessment Suite](plugins/phoenix-security-review/)** + **[OpenGrep Rule Generator](plugins/phoenix-sast-rules/skills/opengrep-rule-generator/)** + **[Secure PRD Generator](plugins/phoenix-prd-pipeline/skills/prd-generator/)** |
+| **🔵 [Blue — Threat Intelligence & Supply-Chain Firewall](https://phoenix.security/phoenix-blue-ai-vulnerability-intelligence-cve-scoring/)** | Block bad packages before install | Adversarially validated intelligence fused into a single decision. Enforces at agent, install, CI, and deploy to block malicious or unsafe packages pre-execution. | **[CTI Domain Research](plugins/phoenix-cti-search/skills/cti-domain-research/)** + **[NotebookLM Connector](plugins/phoenix-docs-research/skills/notebooklm/)** + the **PreToolUse Bash package guard hook** in the Security Assessment Suite |
 | **🟢 Green — Agentic Remediation** | Minimal-diff fix PRs | Minimal-diff PRs, safe alternatives, negative tests, and change plans tied to proven attack paths. Closes the loop with measurable risk reduction. | — (platform-only — coming to OSS) |
 
 **When the open-source skills aren't enough:**
@@ -99,29 +149,54 @@ Built and maintained by the **security engineering team at [Phoenix Security](ht
 ![Overview-Repo-Detailed](images/Phoenix-Skills-Overview-1.jpg)
 
 
-### Skills
+### The six plugins
 
-Skills are instruction-based workflows that guide Claude Code's behavior. They don't execute code directly but define how Claude should approach specific tasks.
+Everything ships as a Claude Code plugin. One `/plugin install` per plugin — no copying
+folders, no editing settings by hand. Each plugin holds one or more **skills**; a skill is
+an instruction-based workflow that also gives you a slash command of the same name.
 
-| Skill | Description | Folder |
-|-------|-------------|--------|
-| **[CTI Domain Research](skills/cti-search-skill/)** | Search 300+ curated security domains for threat intelligence, CVEs, malware, and breach reports | `skills/cti-search-skill/` |
-| **[Secure PRD Generator](skills/secure-prd-skill/)** | Generate security-focused Product Requirements Documents with threat modeling | `skills/secure-prd-skill/` |
-| **[OpenGrep Rule Generator](skills/opengrep-rule-generator/)** | Create opengrep/semgrep SAST rules for vulnerability detection across 30+ languages | `skills/opengrep-rule-generator/` |
-| **[OpenGrep Rule Generator Research](skills/opengrep-rule-generator-research/)** | Research CVEs/CWEs with web search, then generate detection rules from findings | `skills/opengrep-rule-generator-research/` |
-| **[NotebookLM Connector](skills/notebooklm/)** | Query Google NotebookLM notebooks from Claude Code for citation-backed, source-grounded answers | `skills/notebooklm/` |
-| **[Global Research Pipeline](skills/global-research-notebook-lm/)** | Systematic web and YouTube research with NotebookLM ingestion | `skills/global-research-notebook-lm/` |
-| **[Project Documentation](skills/project%20Documentaion%20skill/)** | Auto-generate comprehensive project documentation | `skills/project%20Documentaion%20skill/` |
-| **[Security Assessment Suite](skills/Security%20Assessment/)** | Four complementary AppSec skills (`/security-0day`, `/security-review`, `/security-assessment`, `/threatmodel`) with active hooks, multi-language reviewer, and one-command installer | `skills/Security Assessment/` |
+| Plugin | What it gives you | Skills | Install |
+|---|---|---|---|
+| **[phoenix-security-review](plugins/phoenix-security-review/)** | AppSec review across the whole lifecycle: multi-language reviewer, whole-repo OWASP/ASVS sweep, diff-scoped 0-day scan, STRIDE/DREAD threat model, and two threat-model-driven tiers. Plus 4 slash commands, 1 subagent, 3 opt-in hooks. | 6 | `/plugin install phoenix-security-review@phoenix-security` |
+| **[phoenix-readiness-reviews](plugins/phoenix-readiness-reviews/)** | The two review gates: is the plan implementable, and is the code shippable. Deterministic repo scanner included. | 2 | `/plugin install phoenix-readiness-reviews@phoenix-security` |
+| **[phoenix-sast-rules](plugins/phoenix-sast-rules/)** | opengrep/semgrep rule generation for 30+ languages, with an optional CVE/CWE research pass first. | 2 | `/plugin install phoenix-sast-rules@phoenix-security` |
+| **[phoenix-cti-search](plugins/phoenix-cti-search/)** | Threat intelligence search across 595 curated domains in 4 authority tiers. Skill needs no API key; bundled Node CLI, MCP server and `/cti-search` command. | 1 | `/plugin install phoenix-cti-search@phoenix-security` |
+| **[phoenix-prd-pipeline](plugins/phoenix-prd-pipeline/)** | Security-first specifications: a one-shot PRD generator plus the 12 Phoenix Pipeline roles, stage by stage. | 13 | `/plugin install phoenix-prd-pipeline@phoenix-security` |
+| **[phoenix-docs-research](plugins/phoenix-docs-research/)** | A 6-mode self-healing project documenter, a NotebookLM connector for citation-backed answers, and a web + YouTube research pipeline. | 3 | `/plugin install phoenix-docs-research@phoenix-security` |
 
-### Plugins
+### All 27 skills
 
-Plugins provide executable functionality via MCP (Model Context Protocol) servers and CLI tools.
+Each one is also a slash command named after it.
 
-| Plugin | Description | Folder |
-|--------|-------------|--------|
-| **[CTI Search Plugin](plugins/cti-search-plugin/)** | MCP server + CLI for executing CTI searches across 595+ domains with NotebookLM integration | `plugins/cti-search-plugin/` |
-| **[Secure PRD Plugin](plugins/secure-prd/)** | PRD generator with Confluence, Linear, Asana, Slack, Notion, and Gmail integrations | `plugins/secure-prd/` |
+| Skill | Plugin | Description |
+|---|---|---|
+| `plan-readiness-review` | readiness-reviews | Adversarial review of a PRD, plan, spec or RFC. Verdict: READY / NOT READY |
+| `production-readiness-review` | readiness-reviews | Adversarial review of a real codebase against its plan. Verdict: SHIP / NO-SHIP |
+| `security-reviewer` | security-review | Multi-language 8-point pre-merge review (Python, JS/TS, Go, Java/Kotlin, Rust, Ruby, .NET) |
+| `security-assessment` | security-review | Whole-repo OWASP Top 10 2025 + ASVS Level 1 sweep |
+| `0day-scanner` | security-review | Diff-scoped zero-day analysis of a commit, PR, file or branch |
+| `threat-modeling` | security-review | STRIDE + DREAD threat model extracted from the code |
+| `tm-quick-security-assessment` | security-review | Quick tier — threat-model-aware pre-merge pass on what changed |
+| `tm-security-review` | security-review | Comprehensive tier — full threat model, then triple-pass exploit review with a runnable PoC |
+| `opengrep-rule-generator` | sast-rules | Write opengrep/semgrep pattern and taint rules for 30+ languages |
+| `opengrep-rule-generator-research` | sast-rules | Research a CVE or CWE with web search first, then write the detection rules |
+| `cti-domain-research` | cti-search | Tiered threat-intelligence search across 595 security domains. No API key needed |
+| `prd-generator` | prd-pipeline | Full security-focused PRD with a threat model, from a plain-language description |
+| `phoenix-pipeline-navigator` | prd-pipeline | Interactive guide and launcher for the 10-role pipeline |
+| `phoenix-orchestrator` | prd-pipeline | Runs roles 01–10 end to end |
+| `phoenix-context-curator` | prd-pipeline | Role 01 — cleans raw notes, tickets and threads into CLEAN_CONTEXT |
+| `phoenix-scope-cutter` | prd-pipeline | Role 02 — explicit in-scope / out-of-scope |
+| `phoenix-constraint-distiller` | prd-pipeline | Role 03 — constraints and acceptance criteria |
+| `phoenix-requirements-engineer` | prd-pipeline | Role 04 — RFC 2119 requirements with stable IDs |
+| `phoenix-ambiguity-hunter` | prd-pipeline | Role 05 — red-teams the requirements for ambiguity |
+| `phoenix-security-engineer` | prd-pipeline | Role 06 — threat model and abuse cases |
+| `phoenix-contract-architect` | prd-pipeline | Role 07 — API design, events, error taxonomy |
+| `phoenix-verification-matrix` | prd-pipeline | Role 08 — a proof path for every MUST |
+| `phoenix-batch-planner` | prd-pipeline | Role 09 — incremental, verifiable delivery slices |
+| `phoenix-final-gate` | prd-pipeline | Role 10 — SHIP / NO_SHIP with a blocker list |
+| `project-documenter` | docs-research | Generates and self-heals a full documentation pack across 6 modes |
+| `notebooklm` | docs-research | Queries Google NotebookLM for citation-backed, source-grounded answers |
+| `phoenix-research-pipeline` | docs-research | Web + YouTube research, then pushes sources into NotebookLM |
 
 ### Feature Descriptor — Phoenix Pipeline
 
@@ -130,22 +205,24 @@ Plugins provide executable functionality via MCP (Model Context Protocol) server
 
 The **Phoenix Pipeline** is a 12-role specification system for producing rigorous, security-aware product requirements. Each role is a dedicated skill file.
 
-| Role | Skill File | Purpose |
-|------|-----------|---------|
-| Pipeline Navigator | `pipeline-navigator.skill` | Orchestrates the full pipeline |
-| Context Curator | `context-curator.skill` | Extracts and cleanses input context |
-| Scope Cutter | `scope-cutter.skill` | Defines in/out scope and goals |
-| Constraint Distiller | `constraint-distiller.skill` | Identifies constraints and acceptance criteria |
-| Requirements Engineer | `requirements-engineer.skill` | Creates RFC 2119 requirements with IDs |
-| Ambiguity Hunter | `ambiguity-hunter.skill` | Flags and resolves ambiguities |
-| Security Engineer | `security-engineer.skill` | Develops threat models and abuse cases |
-| Contract Architect | `contract-architect.skill` | Designs APIs, events, and error taxonomy |
-| Verification Matrix | `verification-matrix.skill` | Creates proof paths for every requirement |
-| Batch Planner | `batch-planner.skill` | Plans incremental, verifiable delivery |
-| Final Gate | `final-gate.skill` | Go/no-go decision with blocker list |
-| Orchestrator | `orchestrator.skill` | Coordinates all roles and manages flow |
+| Role | Skill | Purpose |
+|------|-------|---------|
+| Pipeline Navigator | `phoenix-pipeline-navigator` | Orchestrates the full pipeline |
+| Context Curator | `phoenix-context-curator` | Extracts and cleanses input context |
+| Scope Cutter | `phoenix-scope-cutter` | Defines in/out scope and goals |
+| Constraint Distiller | `phoenix-constraint-distiller` | Identifies constraints and acceptance criteria |
+| Requirements Engineer | `phoenix-requirements-engineer` | Creates RFC 2119 requirements with IDs |
+| Ambiguity Hunter | `phoenix-ambiguity-hunter` | Flags and resolves ambiguities |
+| Security Engineer | `phoenix-security-engineer` | Develops threat models and abuse cases |
+| Contract Architect | `phoenix-contract-architect` | Designs APIs, events, and error taxonomy |
+| Verification Matrix | `phoenix-verification-matrix` | Creates proof paths for every requirement |
+| Batch Planner | `phoenix-batch-planner` | Plans incremental, verifiable delivery |
+| Final Gate | `phoenix-final-gate` | Go/no-go decision with blocker list |
+| Orchestrator | `phoenix-orchestrator` | Coordinates all roles and manages flow |
 
-> All feature-descriptor skills live in the [`feature-descriptor/`](feature-descriptor/) folder.
+> All 12 roles ship inside the `phoenix-prd-pipeline` plugin:
+> [`plugins/phoenix-prd-pipeline/skills/`](plugins/phoenix-prd-pipeline/skills/).
+> Install it once and every role is available as a skill and a slash command.
 
 ---
 
@@ -159,45 +236,102 @@ The **Phoenix Pipeline** is a 12-role specification system for producing rigorou
 
 ### Installation
 
-Choose the method that works best for you.
+#### Method 1 — plugin marketplace (recommended)
 
-#### Method 1: Claude Marketplace (Recommended)
-
-See the **[Marketplace Installation Guide](MARKETPLACE_INSTALL.md)** for detailed steps with troubleshooting.
+One marketplace, six plugins. Type these in Claude Code:
 
 ```
-1. Open Claude Code
-2. Navigate to Skills Marketplace
-3. Search "CTI Domain Research" or "Security Skills"
-4. Click Install
-5. Configure API keys (see Configuration below)
+/plugin marketplace add Security-Phoenix-demo/security-skills-claude-code
+/plugin install phoenix-security-review@phoenix-security
+/plugin install phoenix-readiness-reviews@phoenix-security
+/plugin install phoenix-sast-rules@phoenix-security
+/plugin install phoenix-cti-search@phoenix-security
+/plugin install phoenix-prd-pipeline@phoenix-security
+/plugin install phoenix-docs-research@phoenix-security
 ```
 
-#### Method 2: Git Clone
+Install only what you need. `/plugin` opens the browser UI if you would rather click.
+
+Prefer the terminal? The same thing works outside a session:
 
 ```bash
-# Clone the repository
+claude plugin marketplace add Security-Phoenix-demo/security-skills-claude-code
+claude plugin install phoenix-readiness-reviews@phoenix-security
+claude plugin list
+```
+
+**Team-wide auto-install** — commit this to your repo's `.claude/settings.json` and every
+teammate gets the plugins on their next session:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "phoenix-security": {
+      "source": {
+        "source": "github",
+        "repo": "Security-Phoenix-demo/security-skills-claude-code"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "phoenix-security-review@phoenix-security": true,
+    "phoenix-readiness-reviews@phoenix-security": true
+  }
+}
+```
+
+Updating later: `/plugin update phoenix-security-review@phoenix-security`, or
+`/plugin marketplace update phoenix-security` to refresh the catalogue.
+
+See the **[Marketplace Installation Guide](MARKETPLACE_INSTALL.md)** for troubleshooting,
+scopes, and how to test a local checkout before you push.
+
+#### Method 2 — local checkout (for development)
+
+Point the marketplace at a directory instead of a repo. Edits land immediately, so this is
+the loop to use while writing or changing a skill:
+
+```bash
 git clone https://github.com/Security-Phoenix-demo/security-skills-claude-code.git
 cd security-skills-claude-code
-
-# Install CTI Search Skill
-cd skills/cti-search-skill && bash install.sh
-
-# Install CTI Search Plugin
-cd ../../plugins/cti-search-plugin && bash install.sh
+claude plugin marketplace add "$(pwd)"
+claude plugin install phoenix-readiness-reviews@phoenix-security
 ```
 
-#### Method 3: Direct Copy
+Validate before you commit:
 
 ```bash
-# Copy skills
-cp -r skills/cti-search-skill ~/.claude/skills/
-cp -r skills/secure-prd-skill ~/.claude/skills/
+claude plugin validate .                                   # the marketplace manifest
+claude plugin validate plugins/phoenix-security-review     # one plugin manifest
+claude plugin validate --strict plugins/*/skills           # every skill's frontmatter
+```
 
-# Copy and install plugin
-cp -r plugins/cti-search-plugin ~/.claude/plugins/
-cd ~/.claude/plugins/cti-search-plugin && npm install
-cp .env.example .env   # Then edit .env with your API keys
+#### Method 3 — copy a single skill
+
+A skill directory is self-contained. Copy one in and it becomes a slash command named after
+the directory, with no manifest needed:
+
+```bash
+# personal — available in every project on this machine
+cp -r plugins/phoenix-readiness-reviews/skills/* ~/.claude/skills/
+
+# or project-scoped, committed so the team gets it
+cp -r plugins/phoenix-readiness-reviews/skills/* .claude/skills/
+```
+
+Claude Code watches these directories, so an edit lands in the running session without a
+restart. Note that `~/.claude/skills/` is **not** read by Cowork or cloud sessions — use the
+plugin route for those.
+
+#### After installing — Node and API keys
+
+Only `phoenix-cti-search` needs either. Its `cti-domain-research` skill works with no setup;
+the bundled CLI and MCP server need Node 18+ and a search key:
+
+```bash
+CTI=~/.claude/plugins/marketplaces/phoenix-security/plugins/phoenix-cti-search
+cd "$CTI" && npm install --omit=dev
+cp .env.example .env   # then set BRAVE_SEARCH_API_KEY
 ```
 
 ---
@@ -207,51 +341,203 @@ cp .env.example .env   # Then edit .env with your API keys
 ```
 security-skills-claude-code/
 │
-├── README.md                              # This file — start here
-├── CONTRIBUTING.md                        # How to contribute skills and plugins
-├── MARKETPLACE_INSTALL.md                 # Detailed marketplace installation guide
-├── LICENSE                                # MIT License
+├── .claude-plugin/
+│   └── marketplace.json                   # the marketplace manifest — this is what
+│                                          # /plugin marketplace add reads
 │
-├── skills/                                # Instruction-based skills
-│   ├── cti-search-skill/                  # CTI domain research across 300+ sources
-│   ├── cti-search-skill/                  # (contains cti-domain-research.skill)
-│   ├── secure-prd-skill/                  # Security-focused PRD generation
-│   ├── opengrep-rule-generator/           # SAST rule generation (30+ languages)
-│   ├── opengrep-rule-generator-research/  # CVE/CWE research + rule generation
-│   ├── notebooklm/                        # NotebookLM notebook querying
-│   ├── global-research-notebook-lm/       # Research pipeline with NotebookLM
-│   ├── research-pipeline.skill            # Research automation skill
-│   └── project Documentaion skill/        # Auto project documentation
+├── README.md                              # this file — start here
+├── MARKETPLACE_INSTALL.md                 # installation guide + troubleshooting
+├── CONTRIBUTING.md                        # how to add a skill or a plugin
+├── LICENSE                                # MIT
 │
-├── plugins/                               # Executable tools (MCP + CLI)
-│   ├── cti-search-plugin/                 # CTI search engine
-│   │   ├── index.js                       # CLI entry point
-│   │   ├── mcp-server.js                  # MCP tool server
-│   │   ├── package.json                   # Dependencies
-│   │   ├── .env.example                   # Environment template
-│   │   ├── install.sh                     # Installer
-│   │   └── data/
-│   │       ├── domains.txt                # 595 curated security domains
-│   │       └── tier-map.json              # Domain tier + authority scores
-│   │
-│   └── secure-prd/                        # PRD generator plugin
-│       ├── prd-generator.skill            # Skill definition
-│       └── prd-generator-plugin.jsx       # UI component
-│
-└── feature-descriptor/                    # Phoenix Pipeline (12 specialized roles)
-    ├── pipeline-navigator.skill
-    ├── context-curator.skill
-    ├── scope-cutter.skill
-    ├── constraint-distiller.skill
-    ├── requirements-engineer.skill
-    ├── ambiguity-hunter.skill
-    ├── security-engineer.skill
-    ├── contract-architect.skill
-    ├── verification-matrix.skill
-    ├── batch-planner.skill
-    ├── final-gate.skill
-    └── orchestrator.skill
+└── plugins/                               # one directory per plugin
+    │
+    ├── phoenix-security-review/           # 6 skills, 4 commands, 1 agent, 3 hooks
+    │   ├── .claude-plugin/plugin.json
+    │   ├── skills/
+    │   │   ├── security-reviewer/         # canonical multi-language reviewer
+    │   │   │   ├── languages/             # 7 per-language reference packs
+    │   │   │   ├── checklists/            # OWASP/ASVS + endpoint
+    │   │   │   └── playbooks/triage.md
+    │   │   ├── security-assessment/       # whole-repo OWASP + ASVS L1
+    │   │   ├── 0day-scanner/              # diff-scoped exploit analysis
+    │   │   ├── threat-modeling/           # STRIDE + DREAD
+    │   │   ├── tm-quick-security-assessment/
+    │   │   └── tm-security-review/
+    │   ├── commands/                      # /security-review /security-0day
+    │   │                                  # /security-audit /threatmodel
+    │   ├── agents/security-reviewer.md    # the review subagent
+    │   ├── hooks/                         # SessionStart / PreToolUse / PostToolUse
+    │   ├── install/                       # opt-in hook wiring, Windsurf, Codex
+    │   └── references/                    # tester templates, suite notes
+    │
+    ├── phoenix-readiness-reviews/         # 2 skills
+    │   ├── .claude-plugin/plugin.json
+    │   └── skills/
+    │       ├── plan-readiness-review/
+    │       │   └── references/            # ambiguity patterns, output template
+    │       └── production-readiness-review/
+    │           ├── references/            # verification checklists, output template
+    │           └── scripts/scan_repo.sh   # deterministic evidence collector
+    │
+    ├── phoenix-sast-rules/                # 2 skills
+    │   └── skills/
+    │       ├── opengrep-rule-generator/
+    │       └── opengrep-rule-generator-research/
+    │
+    ├── phoenix-cti-search/                # 2 skills + CLI + MCP server
+    │   ├── skills/cti-domain-research/
+    │   ├── commands/cti-search.md
+    │   ├── index.js                       # CLI entry point
+    │   ├── mcp-server.js                  # MCP tool server
+    │   ├── data/domains.txt               # 595 curated security domains
+    │   └── data/tier-map.json             # tier + authority scores
+    │
+    ├── phoenix-prd-pipeline/              # 13 skills
+    │   ├── skills/prd-generator/          # one-shot PRD + threat model
+    │   ├── skills/phoenix-*/              # the 12 pipeline roles
+    │   └── dist/claude-ai-web/            # the Claude.ai web UI variant
+    │
+    └── phoenix-docs-research/             # 3 skills
+        ├── skills/project-documenter/     # 6 modes, incl. self-heal
+        ├── skills/notebooklm/             # browser automation + scripts
+        ├── skills/phoenix-research-pipeline/
+        └── docs/                          # per-skill long-form docs
 ```
+
+Every `dist/` directory holds the packaged `.skill` bundles for uploading to claude.ai —
+they are distribution artefacts, not something Claude Code loads.
+
+---
+
+## Readiness & Review Gates
+
+**Plugin:** [`plugins/phoenix-readiness-reviews/`](plugins/phoenix-readiness-reviews/) ·
+`/plugin install phoenix-readiness-reviews@phoenix-security`
+
+Two gates, split by what is under review. Run the plan gate before build. Run the production
+gate before merge or release. The production gate assumes the plan exists but never trusts it.
+
+![Plan readiness review and production readiness review — inputs, checks, evidence model and verdicts](images/PRD-Imp_skill-review.jpeg)
+
+Left: every input the plan gate accepts, the gaps it hunts for, and the READY / NOT READY
+decision. Right: what the production gate proves against the real repository, and the
+SHIP / NO-SHIP decision. Bottom: where each gate sits in the workflow, and the three-state
+evidence model both share.
+
+| Skill | Input | Question | Verdict |
+|---|---|---|---|
+| `plan-readiness-review` | PRD / plan / spec / RFC / design | Could another senior engineer build this without inventing anything? | READY / NOT READY |
+| `production-readiness-review` | Repo + branch + plan | Is it actually built, wired, tested, and safe to deploy? | SHIP / NO-SHIP |
+
+### 1. Plan Readiness Review — Catch the Gap Before Anyone Writes Code
+
+One question decides everything: **could a competent senior engineer who was not in any of
+the meetings implement this correctly, without inventing anything?** Anything an implementer
+would have to decide for themselves is a gap in the plan, not a detail for later — a guess is
+an unreviewed product decision made by whoever happened to pick up the ticket.
+
+**What it produces:**
+
+- A requirement inventory with stable IDs, so a re-run reports a delta and not a fresh list.
+- A per-requirement verdict backed by a document anchor you can go and read.
+- An unresolved-assumption register — the decisions nobody has actually made yet.
+- A counted READY / NOT READY, and the precise change that would flip it.
+
+It reads a bundled ambiguity-pattern reference during the review: the specific phrasings that
+reliably survive plan review and then produce two engineers building two different things.
+Undefined magnitude, undefined actor, undefined scope of "all", verbs that hide a design
+decision, error-handling non-statements.
+
+**Example prompts:**
+
+```
+/plan-readiness-review docs/payments-prd.md
+review this spec before we build it
+is this ready to implement?
+poke holes in this plan
+will an engineer know what to build from this?
+```
+
+### 2. Production Readiness Review — Try to Disprove That the Work Is Done
+
+The plan is a claim. The commit history is a claim. A passing test suite is a weaker claim
+than it looks. Only the code, its wiring, its configuration and its behaviour under failure
+are evidence. This skill tries to **disprove that the work is finished** and reports what
+survived the attempt.
+
+**Phase 1 is a deterministic scan.** `scripts/scan_repo.sh` emits `path:line` for every hit,
+under seven sections: incompleteness markers, silent failure and swallowed errors, debug and
+dev leftovers, security surface (secret-shaped literals, routes counted against auth markers,
+injection-prone patterns, disabled TLS checks), config/flags/migrations/deploy including which
+artefacts are missing, test surface, and the change surface vs a base ref. It skips test paths
+and vendor directories, needs only bash and grep, and uses ripgrep when present. Output is deterministic, so two
+runs diff cleanly and the review's evidence is reproducible rather than dependent on what the
+model happened to read.
+
+The scanner is useful on its own:
+
+```bash
+SKILL=~/.claude/plugins/marketplaces/phoenix-security/plugins/phoenix-readiness-reviews/skills/production-readiness-review
+bash "$SKILL/scripts/scan_repo.sh" /path/to/repo --base origin/main > scan.md
+bash "$SKILL/scripts/scan_repo.sh" . --base main --exclude 'generated/'
+```
+
+**What the review then does with those leads:**
+
+- Traces every requirement end to end — UI, API, service, persistence, jobs, config,
+  migrations, deploy. Wiring gets its own pass, with a named list of the "exists but is dead"
+  traps.
+- Checks **test integrity by breaking the code** and confirming a test fails, instead of
+  trusting test counts and coverage percentages.
+- Runs per-domain security checks with required evidence for each, not one bullet labelled
+  "security".
+- Separates audit from remediation with a hard gate. Fixing while auditing destroys the
+  record of what actually shipped. Remediation runs only when you authorise it, and only up
+  to the severity you name.
+- Ranks issues by a severity rubric rather than intuition, with stable IDs.
+
+**Example prompts:**
+
+```
+/production-readiness-review
+is this actually implemented?
+verify the implementation against the PRD
+pre-merge review of this branch vs origin/main
+ship or no-ship?
+```
+
+**What comes back** — a counted Verdict block first, then the blocking issues:
+
+```markdown
+## Verdict
+
+**PRODUCTION READY: NO**
+
+- Plan completeness: **91%** (31 READY / 34 requirements)
+- Implementation completeness: **74%** (25 VERIFIED / 34; 7 GAP, 2 UNVERIFIABLE)
+- Open issues: 1 Critical, 3 High, 5 Medium, 2 Low
+- Scope: repo `.` @ `a1b2c3d` vs base `origin/main`; plan `payments-prd.md v1.4`
+- Verdict rule applied: NO-SHIP while any Critical or High is open
+
+## Blocking issues
+
+- P-001 [Critical] `GET /v1/findings/{id}` has no tenant check — findings/api.py:212
+- P-004 [High] refund handler catches and drops every exception — billing/refund.py:88
+```
+
+Then the per-requirement inventory, the remaining work with owners, and an evidence log of
+what was actually executed — so the review's limits are visible rather than implied.
+
+### Why the verdicts are trustworthy
+
+| Rule | Why |
+|---|---|
+| Percentages carry counts — `68% (23/34 VERIFIED)` | A bare percentage from a language model is an invented number |
+| Three states: VERIFIED / GAP / UNVERIFIABLE | "I could not check this" must not collapse into a pass or a fail |
+| Absence claims cite the search that returned zero hits | Makes the review falsifiable instead of merely confident |
+| Audit and remediation split by a hard gate | Fixing while auditing destroys the record of what shipped |
+| Stable issue IDs | A re-run reports a delta, not a fresh list |
 
 ---
 
@@ -261,7 +547,7 @@ Skills that gather, organize, and verify external knowledge — threat intel, ve
 
 ### 1. CTI Domain Research — Automated Threat Intelligence Gathering
 
-**Folder:** [`skills/cti-search-skill/`](skills/cti-search-skill/)
+**Folder:** [`plugins/phoenix-cti-search/skills/cti-domain-research/`](plugins/phoenix-cti-search/skills/cti-domain-research/)
 
 ![Research, Verify, Detect: Structured Threat Intelligence for Claude Code](images/cti-skills.jpg)
 
@@ -292,7 +578,7 @@ Collect CTI on supply chain attacks targeting npm packages
 
 ### 2. NotebookLM Connector — Source-Grounded AI Research with Zero Hallucinations
 
-**Folder:** [`skills/notebooklm/`](skills/notebooklm/)
+**Folder:** [`plugins/phoenix-docs-research/skills/notebooklm/`](plugins/phoenix-docs-research/skills/notebooklm/)
 
 LLM-based security research has a fundamental problem: hallucinations. When Claude can't find something in your uploaded documents, it fills the gap with plausible-sounding but potentially incorrect information — a dangerous failure mode when you're writing detection logic, threat models, or security requirements. The **NotebookLM Connector** solves this by routing questions through [Google NotebookLM](https://notebooklm.google.com/), which answers exclusively from your uploaded documents with strict citation backing.
 
@@ -328,7 +614,7 @@ Search my notebooks for information about OAuth2 token rotation
 
 ### 3. Global Research Pipeline — Automated Intelligence Collection and Ingestion
 
-**Folder:** [`skills/global-research-notebook-lm/`](skills/global-research-notebook-lm/)
+**Folder:** [`plugins/phoenix-docs-research/skills/phoenix-research-pipeline/`](plugins/phoenix-docs-research/skills/phoenix-research-pipeline/)
 
 Individual searches give you snapshots. The **Global Research Pipeline** gives you systematic coverage. This skill orchestrates a multi-module research automation pipeline that collects intelligence from web searches and YouTube video transcripts, deduplicates and organizes findings, and pushes everything into Google NotebookLM for permanent, source-grounded querying.
 
@@ -360,7 +646,7 @@ A focused set of skills that **generate, audit, or remediate security issues acr
 
 ### 1. Secure PRD Generator — Shift Security Left to the Requirements Stage
 
-**Folder:** [`skills/secure-prd-skill/`](skills/secure-prd-skill/)
+**Folder:** [`plugins/phoenix-prd-pipeline/skills/prd-generator/`](plugins/phoenix-prd-pipeline/skills/prd-generator/)
 
 ![Shift Security Left at the PRD Stage](images/prd-pipeline.jpg)
 
@@ -390,7 +676,7 @@ Generate requirements for a file upload service with virus scanning
 
 ### 2. OpenGrep Rule Generator — AI-Powered SAST Rule Creation
 
-**Folder:** [`skills/opengrep-rule-generator/`](skills/opengrep-rule-generator/)
+**Folder:** [`plugins/phoenix-sast-rules/skills/opengrep-rule-generator/`](plugins/phoenix-sast-rules/skills/opengrep-rule-generator/)
 
 ![Generate Automatically Opengrep Rules](images/OpenGrep-Rule-Auto-Generaiton.jpg)
 
@@ -423,7 +709,7 @@ Generate Terraform rules to detect publicly exposed S3 buckets
 
 ### 3. OpenGrep Rule Generator Research — Vulnerability-First Detection Engineering
 
-**Folder:** [`skills/opengrep-rule-generator-research/`](skills/opengrep-rule-generator-research/)
+**Folder:** [`plugins/phoenix-sast-rules/skills/opengrep-rule-generator-research/`](plugins/phoenix-sast-rules/skills/opengrep-rule-generator-research/)
 
 ![Generate Automatically Opengrep Rules and research vulnerabilities](images/Opengrep-Rules-Research.jpg)
 
@@ -454,7 +740,7 @@ Study the MOVEit Transfer vulnerability and write detection rules
 
 ### 4. Project Documentation — Turn Any Codebase into Living Documentation
 
-**Folder:** [`skills/project Documentaion skill/`](skills/project%20Documentaion%20skill/)
+**Folder:** [`plugins/phoenix-docs-research/skills/project-documenter/`](plugins/phoenix-docs-research/skills/project-documenter/)
 
 ![Project Documentation: Turning Codebases into Living Documentation](images/project-documentation.jpg)
 
@@ -494,18 +780,24 @@ Set up self-healing documentation with GitHub Actions CI
 
 ![Security Assessment Suite — four AppSec skills and active hooks for Claude Code](images/Security-automation-agents.jpg)
 
-**Folder:** [`skills/Security Assessment/`](skills/Security%20Assessment/) — see the [suite README](skills/Security%20Assessment/README.md) for the full reference.
+**Folder:** [`plugins/phoenix-security-review/`](plugins/phoenix-security-review/) — see the [suite README](plugins/phoenix-security-review/README.md) for the full reference.
 
 A self-contained AppSec automation kit: four slash commands covering the security lifecycle from **diff-time** to **design-time**, a multi-language pre-merge reviewer with subagent dispatch, four hooks (SessionStart, PreToolUse, PostToolUse, SessionEnd) that feed live security context to every agent, and a one-command installer that wires it all into Claude Code, Windsurf, or Codex.
 
-**The four skills (when to use each):**
+**The four commands (when to use each):**
 
-| Command | Use when | Cost | Engine |
+| Command | Use when | Cost | Skill it runs |
 |---|---|---|---|
-| `/security-0day [base-ref]` | End of a coding cycle, before opening a PR. Diff-only LLM scan. | Low (~$0.05–$0.20) | `0day-scanner/SKILL.md` (with bundle language packs as on-disk fallback) |
-| `/security-review [scope]` | Endpoint, auth/RBAC, render, dependency, or config change. Pre-merge gate. | Low–Medium | Multi-language reviewer in `Security-automated-claude-skills/` (Python, JS/TS, Go, Java/Kotlin, Rust, Ruby, .NET) |
-| `/security-assessment [scope]` | Pre-release, compliance audit, post-incident. Full OWASP Top 10 (2025) + ASVS Level 1 sweep. | High (~$8–$10) | `security-assessment/SKILL.md` (with bundle OWASP/ASVS checklists as fallback) |
-| `/threatmodel [scope]` | Architecture review, new-feature design, compliance docs. | Medium | `threat-modeling/SKILL.md` — STRIDE + DREAD with attack trees and mitigation matrix |
+| `/security-0day [base-ref]` | End of a coding cycle, before opening a PR. Diff-only LLM scan. | Low (~$0.05–$0.20) | `0day-scanner` — with the language packs as on-disk fallback |
+| `/security-review [scope]` | Endpoint, auth/RBAC, render, dependency, or config change. Pre-merge gate. | Low–Medium | `security-reviewer` — Python, JS/TS, Go, Java/Kotlin, Rust, Ruby, .NET |
+| `/security-audit [scope]` | Pre-release, compliance audit, post-incident. Full OWASP Top 10 (2025) + ASVS Level 1 sweep. | High (~$8–$10) | `security-assessment` — with the OWASP/ASVS checklists as fallback |
+| `/threatmodel [scope]` | Architecture review, new-feature design, compliance docs. | Medium | `threat-modeling` — STRIDE + DREAD with attack trees and a mitigation matrix |
+
+Two more skills come with the plugin and have no command of their own — ask for them by name,
+or let Claude pick them up from the request: `tm-quick-security-assessment` (quick tier — a
+threat-model-aware pass over only what changed vs a base ref) and `tm-security-review`
+(comprehensive tier — build the full STRIDE model, then a triple-pass HUNT → JUDGE → VERIFY
+exploit review that proves a runnable PoC per confirmed finding).
 
 **Active hooks (full preset only — opt out for the lite preset):**
 
@@ -514,14 +806,19 @@ A self-contained AppSec automation kit: four slash commands covering the securit
 - **`PostToolUse` on `Edit|Write|MultiEdit`** runs a fast pattern scan on every file write (SQL string formatting, `innerHTML`, hardcoded secrets, etc.) and feeds findings back via `additionalContext`.
 - **`SessionEnd`** prints a one-line reminder to run `/security-0day` if your branch has unscanned changes vs `main`. Zero LLM cost.
 
-**Install — one command:**
+**The hooks are opt-in.** Installing the plugin gives you the six skills, the four slash
+commands and the subagent immediately. The three active hooks are *not* wired automatically,
+because a `PreToolUse` gate on every Bash call and a scan on every file write should be your
+decision, not a side effect of installing a plugin.
+
+To wire them, run the bundled installer from your project root:
 
 ```bash
-# From your project root, after cloning this repo (or installing the marketplace plugin):
-bash "skills/Security Assessment/install/install.sh" --full
+PLUGIN=~/.claude/plugins/marketplaces/phoenix-security/plugins/phoenix-security-review
+bash "$PLUGIN/install/install.sh" --full
 ```
 
-That's it. The installer:
+The installer:
 
 1. Copies the four slash commands into `.claude/commands/`.
 2. Merges the chosen hook preset into `.claude/settings.json` (uses `jq` if available; backs up your existing settings first; tracks installer-created files so `--uninstall` is clean).
@@ -552,7 +849,7 @@ That's it. The installer:
 /security-0day                         # scan diff vs main with the LLM 0-day scanner
 /security-0day origin/release-1.4      # scan diff vs a different base ref
 /security-review auth                  # 8-point check focused on auth surfaces
-/security-assessment backend           # full OWASP/ASVS sweep, backend only
+/security-audit backend                # full OWASP/ASVS sweep, backend only
 /threatmodel src/payments/             # STRIDE + DREAD threat model for the payments component
 ```
 
@@ -564,23 +861,24 @@ Are you reviewing a specific diff/PR/commit?
 └── No → Did the change touch endpoints/auth/render/deps/config?
         ├── Yes → /security-review
         └── No → Pre-release / quarterly audit?
-                ├── Yes → /security-assessment
+                ├── Yes → /security-audit
                 └── No → New feature / architecture design?
                         ├── Yes → /threatmodel
                         └── No → You probably don't need this suite right now.
 ```
 
-**Key files:**
+**Key files** (all paths relative to `plugins/phoenix-security-review/`):
 
-- `README.md` — suite overview, install, decision tree, hook reference, subagent details, cross-skill integration diagram, troubleshooting.
-- `install/install.sh` — the one-command installer.
-- `install/commands/` — the four slash command definitions (each is a thin wrapper over a SKILL).
+- `README.md` — suite overview, decision tree, hook reference, subagent details, cross-skill integration diagram, troubleshooting.
+- `skills/security-reviewer/` — the canonical multi-language reviewer: the 8-point check, 7 per-language reference packs in `languages/`, OWASP/ASVS + endpoint checklists in `checklists/`, and a triage playbook in `playbooks/`. Also the on-disk fallback for `security-assessment` and `0day-scanner` when their MCP tools are unreachable.
+- `commands/` — the four slash command definitions (each a thin wrapper over a skill).
+- `agents/security-reviewer.md` — the review subagent.
+- `hooks/` — the three hook scripts plus `lib/common.sh`.
+- `install/install.sh` — the opt-in hook installer.
 - `install/hooks/settings.{lite,full}.example.json` — ready-to-merge `.claude/settings.json` blocks.
 - `install/windsurf/` — Windsurf rule + workflows.
-- `install/codex/AGENTS.md.snippet` — Codex behavioral instruction.
-- `Security-automated-claude-skills/` — the canonical multi-language reviewer (skill + subagent + hooks + checklists + per-language reference packs + triage playbook). Also the on-disk fallback for `/security-assessment` and `/security-0day`.
-- `Security-Analysis-Agent/` — parameterized backend/frontend tester templates with `{{PLACEHOLDERS}}` (hydrate before use).
-- `_archive/Security-reviewr/` — the older single-file lite reviewer; superseded by the bundle, kept for recovery.
+- `install/codex/AGENTS.md.snippet` — Codex behavioural instruction.
+- `references/security-analysis-agent/` — parameterised backend/frontend tester templates with `{{PLACEHOLDERS}}` (hydrate before use).
 
 ---
 
@@ -588,7 +886,7 @@ Are you reviewing a specific diff/PR/commit?
 
 ### 1. CTI Search Plugin
 
-**Folder:** [`plugins/cti-search-plugin/`](plugins/cti-search-plugin/)
+**Folder:** [`plugins/phoenix-cti-search/`](plugins/phoenix-cti-search/)
 
 The execution engine behind CTI searches. Available as a **CLI tool**, **MCP server**, or **slash command**.
 
@@ -630,7 +928,7 @@ Use the CTI search tool to find recent ransomware reports
 
 ### 2. Secure PRD Plugin
 
-**Folder:** [`plugins/secure-prd/`](plugins/secure-prd/)
+**Folder:** [`plugins/phoenix-prd-pipeline/dist/claude-ai-web/`](plugins/phoenix-prd-pipeline/dist/claude-ai-web/)
 
 Generates security-focused Product Requirements Documents and integrates with external project management tools:
 
@@ -644,7 +942,7 @@ Generates security-focused Product Requirements Documents and integrates with ex
 
 ## Phoenix Pipeline — Feature Descriptor
 
-**Folder:** [`feature-descriptor/`](feature-descriptor/)
+**Folder:** [`plugins/phoenix-prd-pipeline/skills/`](plugins/phoenix-prd-pipeline/skills/)
 
 The Phoenix Pipeline is a **12-role specification system** that breaks down feature requirements into discrete, expert-reviewed stages. Each role is a standalone `.skill` file that can be used independently or orchestrated together.
 
@@ -778,12 +1076,15 @@ NOTEBOOKLM_NOTEBOOK_ID=your_notebook_id_here
 ### Verify Installation
 
 ```bash
-# Check skill
-ls ~/.claude/skills/cti-search-skill/
+# What is installed, and from which marketplace
+claude plugin list
 
-# Test plugin (dry run)
-cd ~/.claude/plugins/cti-search-plugin
-node index.js --query "CVE-2024-21762" --dry-run
+# What a plugin actually exposes — skills, agents, hooks, projected token cost
+claude plugin details phoenix-cti-search
+
+# Test the CTI CLI (dry run, no API call)
+CTI=~/.claude/plugins/marketplaces/phoenix-security/plugins/phoenix-cti-search
+node "$CTI/index.js" --query "CVE-2024-21762" --dry-run
 ```
 
 ---
@@ -859,14 +1160,19 @@ Yes. Skills can be copied to `~/.cursor/skills/` for Cursor. Plugins that run as
 <details>
 <summary><strong>How do I install only specific skills or plugins?</strong></summary>
 
-Each skill and plugin is independent. Copy only the folders you need:
+Each plugin is independent — install only the ones you want:
+
+```
+/plugin marketplace add Security-Phoenix-demo/security-skills-claude-code
+/plugin install phoenix-readiness-reviews@phoenix-security
+```
+
+Want a single skill rather than a whole plugin? A skill directory is self-contained, so copy
+just that one in:
 
 ```bash
-# Just the CTI skill
-cp -r skills/cti-search-skill ~/.claude/skills/
-
-# Just the PRD skill
-cp -r skills/secure-prd-skill ~/.claude/skills/
+git clone https://github.com/Security-Phoenix-demo/security-skills-claude-code.git
+cp -r security-skills-claude-code/plugins/phoenix-cti-search/skills/cti-domain-research ~/.claude/skills/
 ```
 
 </details>
@@ -874,15 +1180,21 @@ cp -r skills/secure-prd-skill ~/.claude/skills/
 <details>
 <summary><strong>Do I need Node.js?</strong></summary>
 
-Only for plugins. Skills are pure instructions and have no runtime dependencies. If you only use skills (no plugins), Node.js is not required.
+Only for `phoenix-cti-search`, and only for its bundled CLI and MCP server. Every skill in
+this repository is pure instructions with no runtime dependency — including
+`cti-domain-research`, which does the same tiered search using Claude's own web-search tools
+and needs neither Node nor an API key. Two exceptions worth knowing: the `notebooklm` skill
+needs Python and a Chrome browser, and `production-readiness-review` ships a bash scanner
+(bash and grep only; it uses ripgrep when present).
 
 </details>
 
 <details>
 <summary><strong>The skill doesn't activate when I ask a question. What's wrong?</strong></summary>
 
-1. Verify the skill is installed: `ls ~/.claude/skills/cti-search-skill/SKILL.md`
-2. Restart Claude Code after installation
+1. Verify it is loaded: run `claude plugin list`, then `claude plugin details <plugin-name>`
+   and look for the skill in the component inventory
+2. Run `/plugin` and check the plugin is *enabled*, not only installed
 3. Try explicit trigger phrases: *"Use the CTI domain research skill to search for..."*
 4. See the [Marketplace Install Troubleshooting](MARKETPLACE_INSTALL.md#troubleshooting) for more solutions
 
@@ -900,7 +1212,7 @@ The curated domain list includes **595+ security sources** across four tiers: go
 <details>
 <summary><strong>Can I add my own domains to the search?</strong></summary>
 
-Yes. Edit `plugins/cti-search-plugin/data/domains.txt` (one domain per line) and update `data/tier-map.json` with the tier and authority score. See the [Contributing Guide](CONTRIBUTING.md) for details.
+Yes. Edit `plugins/phoenix-cti-search/data/domains.txt` (one domain per line) and update `data/tier-map.json` with the tier and authority score. See the [Contributing Guide](CONTRIBUTING.md) for details.
 
 </details>
 
@@ -960,7 +1272,7 @@ It lets you query your Google NotebookLM notebooks directly from Claude Code. No
 <details>
 <summary><strong>What do I need to use the NotebookLM skill?</strong></summary>
 
-You need: (1) Chrome or Edge browser running, (2) the "Claude in Chrome" extension installed and connected, (3) a Google account logged in to NotebookLM. Authentication is a one-time setup — see `skills/notebooklm/AUTHENTICATION.md` for the step-by-step guide.
+You need: (1) Chrome or Edge browser running, (2) the "Claude in Chrome" extension installed and connected, (3) a Google account logged in to NotebookLM. Authentication is a one-time setup — see `plugins/phoenix-docs-research/skills/notebooklm/AUTHENTICATION.md` for the step-by-step guide.
 
 </details>
 
@@ -976,14 +1288,14 @@ Two complementary workflows: The **CTI Search** plugin can push result URLs into
 <details>
 <summary><strong>What is the Phoenix Pipeline?</strong></summary>
 
-It's a 12-role specification system that breaks feature requirements into expert-reviewed stages — from context extraction through scope definition, constraint analysis, security threat modeling, API design, verification matrices, and delivery planning. Each role is a standalone skill file in the `feature-descriptor/` folder.
+It's a 12-role specification system that breaks feature requirements into expert-reviewed stages — from context extraction through scope definition, constraint analysis, security threat modeling, API design, verification matrices, and delivery planning. Each role is a standalone skill file in the `plugins/phoenix-prd-pipeline/skills/` folder.
 
 </details>
 
 <details>
 <summary><strong>Can I use individual Phoenix Pipeline roles without the full pipeline?</strong></summary>
 
-Yes. Each `.skill` file in `feature-descriptor/` is standalone. You can use just the Security Engineer role for threat modeling, or just the Ambiguity Hunter to review existing requirements.
+Yes. Each of the 12 roles is a standalone skill inside `phoenix-prd-pipeline`. You can use just the Security Engineer role for threat modeling, or just the Ambiguity Hunter to review existing requirements.
 
 </details>
 
@@ -999,7 +1311,7 @@ Yes. Through MCP integrations, the PRD generator can publish to Atlassian Conflu
 <details>
 <summary><strong>How can I contribute a new skill?</strong></summary>
 
-Fork the repo, create a skill directory under `skills/`, add a `SKILL.md` (with frontmatter), `README.md`, and `install.sh`, then submit a pull request. Full templates and standards are in the [Contributing Guide](CONTRIBUTING.md).
+Fork the repo, create a skill directory under the right plugin's `skills/` folder, add a `SKILL.md` (with frontmatter), `README.md`, and `install.sh`, then submit a pull request. Full templates and standards are in the [Contributing Guide](CONTRIBUTING.md).
 
 </details>
 
@@ -1043,15 +1355,17 @@ Yes. This toolkit is designed for defensive security, threat intelligence, and s
 | **[MARKETPLACE_INSTALL.md](MARKETPLACE_INSTALL.md)** | Step-by-step marketplace installation with troubleshooting |
 | **[CONTRIBUTING.md](CONTRIBUTING.md)** | How to add skills, plugins, and domains |
 | **[LICENSE](LICENSE)** | MIT License |
-| **[CTI Skill Docs](skills/cti-search-skill/)** | CTI domain research skill specification |
-| **[CTI Plugin Docs](plugins/cti-search-plugin/)** | Plugin architecture, MCP server, CLI reference |
-| **[Secure PRD Docs](skills/secure-prd-skill/)** | PRD generation skill specification |
-| **[OpenGrep Rule Generator](skills/opengrep-rule-generator/)** | SAST rule generation skill + syntax reference |
-| **[OpenGrep Research](skills/opengrep-rule-generator-research/)** | Vulnerability research + rule generation |
-| **[NotebookLM Connector](skills/notebooklm/)** | NotebookLM querying skill + authentication guide |
-| **[Research Pipeline](skills/global-research-notebook-lm/)** | Global research pipeline documentation |
-| **[Project Docs Skill](skills/project%20Documentaion%20skill/)** | Project documentation skill |
-| **[Phoenix Pipeline](feature-descriptor/)** | 12-role feature specification pipeline |
+| **[Readiness Reviews](plugins/phoenix-readiness-reviews/)** | The two review gates + the deterministic repo scanner |
+| **[Security Review Suite](plugins/phoenix-security-review/)** | 6 AppSec skills, 4 commands, subagent, hooks, Windsurf and Codex install |
+| **[CTI Skill Docs](plugins/phoenix-cti-search/skills/cti-domain-research/)** | CTI domain research skill specification |
+| **[CTI Plugin Docs](plugins/phoenix-cti-search/)** | Plugin architecture, MCP server, CLI reference |
+| **[Secure PRD Docs](plugins/phoenix-prd-pipeline/skills/prd-generator/)** | PRD generation skill specification |
+| **[OpenGrep Rule Generator](plugins/phoenix-sast-rules/skills/opengrep-rule-generator/)** | SAST rule generation skill + syntax reference |
+| **[OpenGrep Research](plugins/phoenix-sast-rules/skills/opengrep-rule-generator-research/)** | Vulnerability research + rule generation |
+| **[NotebookLM Connector](plugins/phoenix-docs-research/skills/notebooklm/)** | NotebookLM querying skill + authentication guide |
+| **[Research Pipeline](plugins/phoenix-docs-research/skills/phoenix-research-pipeline/)** | Global research pipeline documentation |
+| **[Project Docs Skill](plugins/phoenix-docs-research/skills/project-documenter/)** | Project documentation skill |
+| **[Phoenix Pipeline](plugins/phoenix-prd-pipeline/skills/)** | 12-role feature specification pipeline |
 
 ---
 

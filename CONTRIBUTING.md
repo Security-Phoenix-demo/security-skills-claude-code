@@ -33,55 +33,70 @@ This guide will help you add new skills, plugins, feature-descriptor roles, or i
 
 ```
 security-skills-claude-code/
+├── .claude-plugin/
+│   └── marketplace.json               # the marketplace manifest — lists every plugin
 ├── README.md                          # Main documentation — start here
 ├── CONTRIBUTING.md                    # This file
 ├── MARKETPLACE_INSTALL.md             # Marketplace installation guide
 ├── LICENSE                            # MIT License
 │
-├── skills/                            # Instruction-based skills
-│   ├── cti-search-skill/              # CTI domain research
-│   ├── secure-prd-skill/              # Security-focused PRD generation
-│   ├── opengrep-rule-generator/       # SAST rule generation (30+ languages)
-│   ├── opengrep-rule-generator-research/  # CVE/CWE research + rule generation
-│   ├── notebooklm/                    # NotebookLM notebook querying
-│   ├── global-research-notebook-lm/   # Research pipeline + NotebookLM
-│   └── project Documentaion skill/    # Auto project documentation
-│
-├── plugins/                           # Executable tools (MCP + CLI)
-│   ├── cti-search-plugin/             # CTI search engine (Node.js)
-│   └── secure-prd/                    # PRD generator plugin
-│
-└── feature-descriptor/                # Phoenix Pipeline — 12 specialized roles
-    ├── OVERARCHING-phoenix-pipeline-navigator.skill
-    ├── phoenix-context-curator.skill
-    ├── phoenix-scope-cutter.skill
-    ├── phoenix-constraint-distiller.skill
-    ├── phoenix-requirements-engineer.skill
-    ├── phoenix-ambiguity-hunter.skill
-    ├── phoenix-security-engineer.skill
-    ├── phoenix-contract-architect.skill
-    ├── phoenix-verification-matrix.skill
-    ├── phoenix-batch-planner.skill
-    ├── phoenix-final-gate.skill
-    └── phoenix-orchestrator.skill
+└── plugins/                           # one directory per plugin
+    ├── phoenix-security-review/       # AppSec review suite (6 skills)
+    ├── phoenix-readiness-reviews/     # plan + production review gates (2 skills)
+    ├── phoenix-sast-rules/            # opengrep/semgrep rule generation (2 skills)
+    ├── phoenix-cti-search/            # threat intel search (2 skills + CLI + MCP)
+    ├── phoenix-prd-pipeline/          # PRD generator + 12 pipeline roles (13 skills)
+    └── phoenix-docs-research/         # documenter, NotebookLM, research (3 skills)
+```
+
+Every plugin has the same shape:
+
+```
+plugins/<plugin-name>/
+├── .claude-plugin/
+│   └── plugin.json                    # required — the plugin manifest
+├── skills/
+│   └── <skill-name>/
+│       ├── SKILL.md                   # required — frontmatter + instructions
+│       ├── references/                # optional — files the skill reads on demand
+│       └── scripts/                   # optional — executables the skill runs
+├── commands/                          # optional — slash commands
+├── agents/                            # optional — subagents
+├── hooks/                             # optional — hook scripts
+├── dist/                              # optional — packaged .skill bundles for claude.ai
+└── README.md                          # what this plugin is, and how to use it
 ```
 
 ### Key Concepts
 
-- **Skills** — instruction-based workflows that guide Claude's behavior (no code execution)
-- **Plugins** — executable tools that run as MCP servers or CLI commands
-- **Feature-Descriptor Roles** — specialized pipeline stages for the Phoenix PRD system
+- **Marketplace** — the single `.claude-plugin/marketplace.json` at the repository root. It
+  lists every plugin. `/plugin marketplace add` reads this and nothing else.
+- **Plugin** — a distributable unit with its own `.claude-plugin/plugin.json`. Users install
+  a plugin, not a skill.
+- **Skill** — one directory holding a `SKILL.md`. It is an instruction-based workflow, and it
+  also becomes a slash command named after the directory.
+- **Command** — a thin `commands/*.md` wrapper that routes to a skill with a shorter name
+  and an argument hint.
+- **Agent** — a subagent definition in `agents/*.md` that a skill can dispatch.
+
+**Every new skill goes inside a plugin.** There is no top-level `skills/` directory any more.
+Pick the plugin whose theme fits, or propose a new plugin in your pull request.
 
 ## Adding a New Skill
 
 Skills are instruction-based workflows that guide Claude Code's behavior. They don't execute code directly but can reference plugins for tool execution.
 
-### Step 1: Create Skill Directory
+### Step 1: Create the Skill Directory Inside a Plugin
+
+Pick the plugin your skill belongs to, then create the directory under its `skills/`:
 
 ```bash
-mkdir -p skills/your-skill-name
-cd skills/your-skill-name
+mkdir -p plugins/phoenix-security-review/skills/your-skill-name
+cd plugins/phoenix-security-review/skills/your-skill-name
 ```
+
+The directory name becomes the slash command, so use lowercase and hyphens — no spaces, no
+capitals. It must match the `name:` in the frontmatter.
 
 ### Step 2: Create SKILL.md
 
@@ -154,17 +169,17 @@ Brief description of what the skill does.
 
 ## Installation
 
-### Via Install Script
-```bash
-cd skills/your-skill-name
-bash install.sh
+Ships inside the `phoenix-<plugin>` plugin:
+
+```
+/plugin marketplace add Security-Phoenix-demo/security-skills-claude-code
+/plugin install phoenix-<plugin>@phoenix-security
 ```
 
-### Manual Installation
+Or copy just this skill in:
+
 ```bash
-cp -r skills/your-skill-name ~/.claude/skills/
-# or for Cursor
-cp -r skills/your-skill-name ~/.cursor/skills/
+cp -r plugins/phoenix-<plugin>/skills/your-skill-name ~/.claude/skills/
 ```
 
 ## Usage
@@ -189,79 +204,117 @@ Provide real-world examples of the skill in action.
 Common issues and solutions.
 ```
 
-### Step 4: Create install.sh
+### Step 4: Validate
 
-Create an installation script:
+A skill needs no installer. It is distributed by the plugin it lives in. What it does need is
+frontmatter that parses:
 
 ```bash
-#!/bin/bash
-set -e
-
-SKILL_NAME="your-skill-name"
-INSTALL_DIR="$HOME/.claude/skills/$SKILL_NAME"
-
-echo "Installing $SKILL_NAME skill..."
-
-# Check if already installed
-if [ -d "$INSTALL_DIR" ]; then
-    echo "⚠️  $SKILL_NAME is already installed at $INSTALL_DIR"
-    read -p "Overwrite? (y/N): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "Installation cancelled."
-        exit 0
-    fi
-    rm -rf "$INSTALL_DIR"
-fi
-
-# Create directory
-mkdir -p "$INSTALL_DIR"
-
-# Copy files
-echo "Copying skill files..."
-cp SKILL.md "$INSTALL_DIR/"
-cp README.md "$INSTALL_DIR/"
-cp install.sh "$INSTALL_DIR/"
-
-# Copy any additional files (data, configs, etc.)
-if [ -d "data" ]; then
-    cp -r data "$INSTALL_DIR/"
-fi
-
-echo "✓ $SKILL_NAME installed successfully to $INSTALL_DIR"
-echo ""
-echo "Next steps:"
-echo "  1. Restart Claude Code to load the skill"
-echo "  2. Try asking: 'Your example query here'"
-echo ""
-echo "For Cursor users, also copy to:"
-echo "  cp -r $INSTALL_DIR ~/.cursor/skills/"
+claude plugin validate --strict plugins/phoenix-security-review/skills
 ```
 
-Make it executable:
-```bash
-chmod +x install.sh
-```
+`--strict` fails on unrecognised fields and missing metadata. Fix everything it reports
+before opening a pull request.
 
-### Step 5: Update Main Documentation
+**Stay inside the Agent Skills spec.** Only `name`, `description` and `allowed-tools` are
+portable. Add a Claude Code-only field such as `argument-hint`, `context: fork` or
+`disable-model-invocation` and the same folder will no longer upload to claude.ai — it fails
+with a hard error rather than ignoring the field.
 
-Add your skill to the main `README.md`:
+**Reference bundled files by variable, never by an absolute path.** `${CLAUDE_SKILL_DIR}`
+resolves to the skill's own directory at every install level:
 
 ```markdown
-### Skills
-- **[Your Skill Name](skills/your-skill-name/)** - Brief description
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/your_script.sh *)
 ```
+
+```bash
+bash ${CLAUDE_SKILL_DIR}/scripts/your_script.sh /path/to/target
+```
+
+Inside a `commands/*.md` file, use `${CLAUDE_PLUGIN_ROOT}` instead — it resolves to the
+plugin's root directory.
+
+Make any script executable and commit that bit:
+
+```bash
+chmod +x plugins/<plugin>/skills/<skill>/scripts/your_script.sh
+git update-index --chmod=+x plugins/<plugin>/skills/<skill>/scripts/your_script.sh
+```
+
+### Step 5: Update the Documentation
+
+Three places, all in the repository root `README.md`:
+
+1. The **All 27 skills** table — add a row with the skill, its plugin and one line of
+   description. Update the heading count.
+2. The plugin's row in **The six plugins** table — bump its skill count.
+3. The plugin's own `plugins/<plugin>/README.md`.
+
+If the skill changes what the plugin does, update the `description` in
+`plugins/<plugin>/.claude-plugin/plugin.json` **and** the matching entry in
+`.claude-plugin/marketplace.json`. Those two descriptions are what users read before they
+install, and `claude plugin tag` will fail if a plugin manifest and its marketplace entry
+disagree.
 
 ## Adding a New Plugin
 
 Plugins provide executable functionality via MCP servers and CLI tools.
 
-### Step 1: Create Plugin Directory
+A plugin is the unit users install. Add one when your work is a new theme rather than another
+skill inside an existing theme.
+
+### Step 1: Create the Plugin Directory and Manifest
 
 ```bash
-mkdir -p plugins/your-plugin-name
+mkdir -p plugins/your-plugin-name/.claude-plugin
+mkdir -p plugins/your-plugin-name/skills
 cd plugins/your-plugin-name
 ```
+
+Write `.claude-plugin/plugin.json`. This file is required — without it the directory is not a
+plugin:
+
+```json
+{
+  "$schema": "https://www.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "your-plugin-name",
+  "version": "1.0.0",
+  "description": "One or two sentences a user reads before installing. Say what it does, not what it is.",
+  "author": { "name": "Your Name", "email": "you@example.com" },
+  "homepage": "https://github.com/Security-Phoenix-demo/security-skills-claude-code",
+  "repository": "https://github.com/Security-Phoenix-demo/security-skills-claude-code",
+  "license": "MIT",
+  "keywords": ["security", "your", "keywords"]
+}
+```
+
+`name` must match the directory name.
+
+### Step 1b: Register It in the Marketplace
+
+A plugin nobody can find is not installable. Add an entry to
+`.claude-plugin/marketplace.json` at the repository root:
+
+```json
+{
+  "name": "your-plugin-name",
+  "source": "./plugins/your-plugin-name",
+  "description": "Same description as the plugin manifest.",
+  "category": "security",
+  "keywords": ["security", "your", "keywords"]
+}
+```
+
+Then prove both manifests parse:
+
+```bash
+claude plugin validate .
+claude plugin validate plugins/your-plugin-name
+```
+
+A plugin holding only skills is finished at this point. The Node CLI and MCP server steps
+below apply only if your plugin ships executable tooling.
 
 ### Step 2: Create package.json
 
@@ -399,66 +452,22 @@ YOUR_API_KEY=your_api_key_here
 YOUR_OPTION=default_value
 ```
 
-### Step 6: Create install.sh
+### Step 6: Dependencies, Not an Installer
 
-```bash
-#!/bin/bash
-set -e
+Do not write an `install.sh`. Users install through the marketplace, and a plugin directory is
+managed by Claude Code. What you do need:
 
-PLUGIN_NAME="your-plugin-name"
-INSTALL_DIR="$HOME/.claude/plugins/$PLUGIN_NAME"
+- A `package.json` with pinned dependency ranges and `"engines": { "node": ">=18.0.0" }`.
+- A `.env.example` listing every variable, with no real values. Never commit a `.env`.
+- One clear error message per missing prerequisite. "Cannot find module 'axios' — run
+  `npm install --omit=dev` in this plugin directory" beats a stack trace.
 
-echo "Installing $PLUGIN_NAME plugin..."
+Document the one-time setup in the plugin's `README.md` and in
+[`MARKETPLACE_INSTALL.md`](MARKETPLACE_INSTALL.md) under **Per-plugin setup**.
 
-# Check Node.js
-if ! command -v node &> /dev/null; then
-    echo "Error: Node.js 18+ is required but not installed."
-    exit 1
-fi
-
-NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-if [ "$NODE_VERSION" -lt 18 ]; then
-    echo "Error: Node.js 18+ is required (found v$NODE_VERSION)"
-    exit 1
-fi
-
-# Check if already installed
-if [ -d "$INSTALL_DIR" ]; then
-    echo "⚠️  $PLUGIN_NAME is already installed at $INSTALL_DIR"
-    read -p "Overwrite? (y/N): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "Installation cancelled."
-        exit 0
-    fi
-    rm -rf "$INSTALL_DIR"
-fi
-
-# Create directory
-mkdir -p "$INSTALL_DIR"
-
-# Copy files
-echo "Copying plugin files..."
-cp -r ./* "$INSTALL_DIR/"
-
-# Install dependencies
-echo "Installing dependencies..."
-cd "$INSTALL_DIR"
-npm install
-
-# Setup environment
-if [ ! -f "$INSTALL_DIR/.env" ]; then
-    cp .env.example .env
-    echo "⚠️  Created .env file - please add your API keys"
-fi
-
-echo "✓ $PLUGIN_NAME installed successfully to $INSTALL_DIR"
-echo ""
-echo "Next steps:"
-echo "  1. Edit $INSTALL_DIR/.env and add your API keys"
-echo "  2. Test with: cd $INSTALL_DIR && node index.js --dry-run"
-echo "  3. Restart Claude Code to load the MCP server"
-```
+**Never write into the plugin directory anything a user would hate to lose.** `/plugin update`
+replaces that directory. Credentials, saved sessions and libraries belong somewhere the update
+does not reach, or the README must warn the user to back them up.
 
 ### Step 7: Create README.md
 
@@ -477,9 +486,18 @@ Description of what your plugin does.
 
 ## Installation
 
+```
+/plugin marketplace add Security-Phoenix-demo/security-skills-claude-code
+/plugin install your-plugin-name@phoenix-security
+```
+
+Then, once, for the bundled CLI and MCP server:
+
 ```bash
-cd plugins/your-plugin-name
-bash install.sh
+MP=~/.claude/plugins/marketplaces/phoenix-security
+cd "$MP/plugins/your-plugin-name"
+npm install --omit=dev
+cp .env.example .env    # then add your keys
 ```
 
 ## Configuration
@@ -528,11 +546,17 @@ Add your plugin to the main `README.md`:
 
 ## Adding a Feature-Descriptor Role
 
-Feature-descriptor roles are specialized stages in the Phoenix Pipeline. Each role is a `.skill` file in the `feature-descriptor/` directory.
+Feature-descriptor roles are specialised stages in the Phoenix Pipeline. Each role is a skill
+directory inside the `phoenix-prd-pipeline` plugin.
 
-### Step 1: Create the Skill File
+### Step 1: Create the Skill Directory
 
-Create `feature-descriptor/phoenix-your-role.skill` following the naming convention `phoenix-<role-name>.skill`.
+```bash
+mkdir -p plugins/phoenix-prd-pipeline/skills/phoenix-your-role
+```
+
+Follow the naming convention `phoenix-<role-name>`. The directory name, the `name:` in the
+frontmatter, and the slash command are all the same string.
 
 ### Step 2: Define the Role
 
@@ -589,11 +613,10 @@ Every contribution must include:
    - Error handling
    - Integration points
 
-3. **install.sh** - Automated installation
-   - Prerequisite checks
-   - Idempotent (safe to run multiple times)
-   - Clear success/error messages
-   - Next steps after installation
+3. **`.claude-plugin/plugin.json`** (for a new plugin) - the plugin manifest
+   - `name` matching the directory name
+   - A `description` a user can decide from
+   - A matching entry in the root `.claude-plugin/marketplace.json`
 
 4. **.env.example** (for plugins) - Environment template
    - All required variables
@@ -610,56 +633,72 @@ Every contribution must include:
 
 ## Testing Your Contribution
 
-### For Skills
+Test against a local marketplace. Edits land immediately, so this is the loop for real work.
 
-1. **Install the skill**:
-   ```bash
-   bash install.sh
-   ```
+### 1. Validate the manifests and the frontmatter
 
-2. **Verify installation**:
-   ```bash
-   ls ~/.claude/skills/your-skill-name/
-   ```
+```bash
+claude plugin validate .                                 # the marketplace manifest
+claude plugin validate plugins/your-plugin-name          # the plugin manifest
+claude plugin validate --strict plugins/*/skills         # every skill's frontmatter
+```
 
-3. **Test in Claude Code**:
-   - Restart Claude Code
-   - Ask a query that should trigger your skill
-   - Verify the skill activates and works correctly
+### 2. Install from your checkout
 
-### For Plugins
+```bash
+claude plugin marketplace add "$(pwd)"
+claude plugin install your-plugin-name@phoenix-security
+```
 
-1. **Install the plugin**:
-   ```bash
-   bash install.sh
-   ```
+If `phoenix-security` is already registered from GitHub, remove it first —
+`claude plugin marketplace remove phoenix-security` — since two marketplaces cannot share a
+name.
 
-2. **Test CLI interface**:
-   ```bash
-   cd ~/.claude/plugins/your-plugin-name
-   node index.js --dry-run
-   node index.js --query "test query"
-   ```
+### 3. Confirm the component actually loaded
 
-3. **Test MCP interface**:
-   - Restart Claude Code
-   - Ask Claude to use your plugin
-   - Verify the tool is called correctly
+```bash
+claude plugin details your-plugin-name
+```
 
-4. **Test error handling**:
-   - Try invalid inputs
-   - Test with missing environment variables
-   - Verify error messages are clear
+Your skill, command and agent must appear in the component inventory. If a skill is missing,
+its frontmatter did not parse. Check the projected token cost too: the always-on figure is
+what your `description` adds to **every** session, so keep it tight.
+
+### 4. Check for name clashes
+
+Two components cannot share a slash name. Compare the inventory against the other five
+plugins before you commit. A command that wraps a skill must not reuse the skill's name.
+
+### 5. Exercise it for real
+
+- Trigger it by description — ask the kind of question the `description` promises. If Claude
+  does not reach for it, the description is the problem, not the body.
+- Trigger it explicitly — `/your-plugin-name:your-skill-name`.
+- Run any bundled script by hand and confirm it exits 0 and writes nothing outside its target.
+- For a CLI or MCP plugin, test the missing-dependency and missing-key paths and read the
+  error message as a new user would.
+
+### 6. Prove the paths survive relocation
+
+Copy the skill into `~/.claude/skills/` and run it again. Anything that breaks was a
+hard-coded path — replace it with `${CLAUDE_SKILL_DIR}`.
 
 ### Testing Checklist
 
-- [ ] Installation script runs without errors
-- [ ] All documentation is clear and accurate
-- [ ] Examples work as shown
-- [ ] Error messages are helpful
-- [ ] No hardcoded paths or credentials
+- [ ] `claude plugin validate .` passes
+- [ ] `claude plugin validate --strict plugins/*/skills` passes
+- [ ] `claude plugin details <plugin>` lists every component you added
+- [ ] No slash-name clash with any other plugin in this repository
+- [ ] The skill fires from its description, not only from the explicit command
+- [ ] Frontmatter uses only `name`, `description`, `allowed-tools`
+- [ ] `name:` matches the directory name exactly
+- [ ] Bundled paths use `${CLAUDE_SKILL_DIR}` or `${CLAUDE_PLUGIN_ROOT}`, never an absolute path
+- [ ] Scripts are committed executable (`git update-index --chmod=+x`)
+- [ ] Nothing a user would hate to lose is written inside the plugin directory
+- [ ] Plugin manifest and marketplace entry descriptions agree
+- [ ] README tables and counts updated
+- [ ] No credentials, no `.env`, no `.DS_Store`
 - [ ] Works on both macOS and Linux (if possible)
-- [ ] Follows existing code style
 
 ## Submitting a Pull Request
 

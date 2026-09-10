@@ -1,0 +1,11 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "phoenix-docs-research",
+  "version": "1.0.0",
+  "description": "Documentation and research tooling. project-documenter generates and self-heals a full documentation pack across 6 modes. notebooklm queries Google NotebookLM for citation-backed, source-grounded answers. phoenix-research-pipeline runs web and YouTube research and pushes sources into NotebookLM.",
+  "author": { "name": "Phoenix Security", "email": "admin@phoenix.security", "url": "https://phoenix.security" },
+  "homepage": "https://github.com/Security-Phoenix-demo/security-skills-claude-code",
+  "repository": "https://github.com/Security-Phoenix-demo/security-skills-claude-code",
+  "license": "MIT",
+  "keywords": ["documentation", "research", "notebooklm", "architecture-docs", "claude-md", "self-heal"]
+}

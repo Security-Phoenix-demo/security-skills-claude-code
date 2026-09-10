@@ -1,492 +1,545 @@
-# Claude Marketplace Installation Guide
+# Marketplace Installation Guide
 
-This guide covers installing Security Skills for Claude Code through the Claude Marketplace.
+Everything in this repository installs as **six Claude Code plugins** from **one
+marketplace**. You add the marketplace once, then install the plugins you want.
+
+Built by the engineering and security teams at [Phoenix Security](https://phoenix.security).
+
+---
+
+## Contents
+
+- [The 30-second version](#the-30-second-version)
+- [Prerequisites](#prerequisites)
+- [What you can install](#what-you-can-install)
+- [Step 1 — add the marketplace](#step-1--add-the-marketplace)
+- [Step 2 — install the plugins](#step-2--install-the-plugins)
+- [Step 3 — verify](#step-3--verify)
+- [Team-wide auto-install](#team-wide-auto-install)
+- [Per-plugin setup](#per-plugin-setup)
+- [Updating](#updating)
+- [Uninstalling](#uninstalling)
+- [Installing from a local checkout](#installing-from-a-local-checkout)
+- [Copying a single skill instead](#copying-a-single-skill-instead)
+- [Troubleshooting](#troubleshooting)
+- [Quick reference](#quick-reference)
+
+---
+
+## The 30-second version
+
+Paste this into Claude Code:
+
+```
+/plugin marketplace add Security-Phoenix-demo/security-skills-claude-code
+/plugin install phoenix-security-review@phoenix-security
+/plugin install phoenix-readiness-reviews@phoenix-security
+/plugin install phoenix-sast-rules@phoenix-security
+/plugin install phoenix-cti-search@phoenix-security
+/plugin install phoenix-prd-pipeline@phoenix-security
+/plugin install phoenix-docs-research@phoenix-security
+```
+
+Nothing else is required. Only `phoenix-cti-search` needs an API key, and only for its
+bundled CLI — its skill works with no key at all.
+
+---
 
 ## Prerequisites
 
-- Claude Code installed and running
-- Node.js 18+ (for plugins that require dependencies)
-- API keys for search providers (see [Configuration](#configuration))
+| Requirement | Needed for | Notes |
+|---|---|---|
+| Claude Code | Everything | `claude --version`. Plugins need a reasonably current build |
+| Git | Adding a marketplace from GitHub | Already required by Claude Code |
+| Node.js 18+ | `phoenix-cti-search` CLI and MCP server only | The `cti-domain-research` skill does not need it |
+| A search API key | `phoenix-cti-search` CLI only | [Brave Search](https://api.search.brave.com/app/keys) — 2,000 free requests a month |
+| Python 3 + Chrome | The `notebooklm` skill only | Plus the "Claude in Chrome" extension |
+| `ripgrep` | Faster repo scanning | Optional. The scanner falls back to `grep` |
+| `jq` | Clean hook wiring in `phoenix-security-review` | Optional. The installer falls back to copy-paste instructions |
 
-## Installing from Claude Marketplace
+---
 
-### Method 1: Search and Install (Recommended)
+## What you can install
 
-1. **Open Claude Code**
-2. **Access the Marketplace**:
-   - Click on the Skills/Plugins menu
-   - Or use the command palette: `Cmd/Ctrl + Shift + P` → "Browse Skills Marketplace"
-3. **Search for Skills**:
-   - Search for "CTI Domain Research" or "Security Skills"
-   - Browse the security category
-4. **Install**:
-   - Click "Install" on the skill or plugin you want
-   - Wait for installation to complete
-   - Restart Claude Code if prompted
+| Plugin | Skills | What it gives you |
+|---|---|---|
+| `phoenix-security-review` | 6 | AppSec review across the lifecycle: `security-reviewer`, `security-assessment`, `0day-scanner`, `threat-modeling`, `tm-quick-security-assessment`, `tm-security-review`. Plus 4 commands (`/security-review`, `/security-0day`, `/security-audit`, `/threatmodel`), a `security-reviewer` subagent, and 3 opt-in hooks |
+| `phoenix-readiness-reviews` | 2 | `plan-readiness-review` (READY / NOT READY on a plan) and `production-readiness-review` (SHIP / NO-SHIP on a codebase), with a deterministic repo scanner |
+| `phoenix-sast-rules` | 2 | `opengrep-rule-generator` and `opengrep-rule-generator-research` — SAST rules for 30+ languages |
+| `phoenix-cti-search` | 1 | `cti-domain-research` skill (no API key) plus a `/cti-search` command over a Node CLI and MCP server, across 595 curated domains |
+| `phoenix-prd-pipeline` | 13 | `prd-generator` plus the 12 Phoenix Pipeline roles, from context curation to a final ship gate |
+| `phoenix-docs-research` | 3 | `project-documenter` (6 modes, self-healing), `notebooklm`, `phoenix-research-pipeline` |
 
-### Method 2: Direct Install via URL
+A **skill** also gives you a slash command named after it. Plugin skills are namespaced —
+`/phoenix-readiness-reviews:plan-readiness-review` always works, and the bare
+`/plan-readiness-review` works too unless something else has claimed that name.
 
-If you have a direct marketplace URL:
+---
+
+## Step 1 — add the marketplace
+
+In a Claude Code session:
+
+```
+/plugin marketplace add Security-Phoenix-demo/security-skills-claude-code
+```
+
+Or from your shell:
 
 ```bash
-# For skills
-claude-code install skill:cti-domain-research
-
-# For plugins
-claude-code install plugin:cti-search-plugin
-```
-
-## Available Packages
-
-### Skills
-
-#### CTI Domain Research
-- **Marketplace ID**: `cti-domain-research`
-- **Description**: Search 300+ curated security domains for threat intelligence
-- **Use Cases**: CVE research, threat actor analysis, malware intelligence
-- **Dependencies**: None (pure instruction-based)
-- **Install Command**: `claude-code install skill:cti-domain-research`
-
-#### Secure PRD Generator
-- **Marketplace ID**: `secure-prd-generator`
-- **Description**: Generate security-focused Product Requirements Documents with threat modeling
-- **Use Cases**: PRD creation, security requirements, threat model generation
-- **Dependencies**: None (pure instruction-based; optional MCP integrations for Confluence, Linear, Slack)
-- **Install Command**: `claude-code install skill:secure-prd-generator`
-
-#### OpenGrep Rule Generator
-- **Marketplace ID**: `opengrep-rule-generator`
-- **Description**: Generate opengrep/semgrep SAST rules for vulnerability detection across 30+ languages
-- **Use Cases**: SAST rule creation, vulnerability pattern detection, OWASP Top 10 coverage, code security scanning
-- **Dependencies**: None (pure instruction-based; opengrep or semgrep CLI needed to run generated rules)
-- **Install Command**: `claude-code install skill:opengrep-rule-generator`
-
-#### OpenGrep Rule Generator Research
-- **Marketplace ID**: `opengrep-rule-generator-research`
-- **Description**: Research CVEs/CWEs via web search, then generate targeted detection rules from findings
-- **Use Cases**: CVE-driven rule generation, vulnerability research, detection gap analysis, security coverage mapping
-- **Dependencies**: None (pure instruction-based; uses web search and web fetch tools for research)
-- **Install Command**: `claude-code install skill:opengrep-rule-generator-research`
-
-#### NotebookLM Connector
-- **Marketplace ID**: `notebooklm-connector`
-- **Description**: Query Google NotebookLM notebooks from Claude Code for citation-backed answers
-- **Use Cases**: Source-grounded research Q&A, security documentation querying, notebook library management
-- **Dependencies**: Chrome/Edge browser, "Claude in Chrome" extension, Google account with NotebookLM access
-- **Install Command**: `claude-code install skill:notebooklm-connector`
-
-#### Global Research Pipeline
-- **Marketplace ID**: `global-research-pipeline`
-- **Description**: Systematic research pipeline with web search and NotebookLM integration
-- **Use Cases**: Deep research, source collection, NotebookLM ingestion
-- **Dependencies**: Python 3.8+ (for research modules), NotebookLM connector
-- **Install Command**: `claude-code install skill:global-research-pipeline`
-
-#### Project Documentation
-- **Marketplace ID**: `project-documentation`
-- **Description**: Auto-generate comprehensive project documentation from your codebase
-- **Use Cases**: Project documentation, architecture summaries, onboarding docs
-- **Dependencies**: None (pure instruction-based)
-- **Install Command**: `claude-code install skill:project-documentation`
-
-#### Security Assessment Suite
-- **Marketplace ID**: `security-assessment-suite`
-- **Description**: Four AppSec slash commands (`/security-0day`, `/security-review`, `/security-assessment`, `/threatmodel`) plus four active hooks (SessionStart project fingerprint + dep audit, PreToolUse package-install guard, PostToolUse pattern quickscan, SessionEnd 0-day reminder) and a multi-language pre-merge reviewer subagent
-- **Use Cases**: Pre-PR diff scanning, endpoint/auth/render review, full OWASP Top 10 + ASVS L1 audits, STRIDE/DREAD threat modeling, malicious-package install gating, per-write pattern scanning
-- **Dependencies**:
-  - **Required**: bash, ripgrep (already required by Claude Code).
-  - **Recommended**: `jq` (for clean `.claude/settings.json` merge — installer falls back to copy-paste instructions if absent).
-  - **Optional**: `osv-scanner` for richer dependency audit at `SessionStart` (falls back to ecosystem-native tools: `npm audit`, `pip-audit`, `cargo audit`, `govulncheck`, `bundle audit`).
-- **Install Command**: After installing the marketplace package, run from your project root:
-  ```bash
-  bash "skills/Security Assessment/install/install.sh" --full
-  ```
-  The marketplace install puts the suite under `skills/Security Assessment/`. The local `install.sh` then wires slash commands, the subagent, and hooks into `.claude/`. Use `--lite` for the SessionEnd reminder only (no active hooks, no subagent), `--dry-run` to preview, or `--uninstall` to remove cleanly.
-
-### Plugins
-
-#### CTI Search Plugin
-- **Marketplace ID**: `cti-search-plugin`
-- **Description**: MCP server and CLI for executing CTI searches across 595+ domains
-- **Use Cases**: Automated threat intelligence gathering, NotebookLM integration
-- **Dependencies**: Node.js 18+, Brave Search API or SerpAPI
-- **Install Command**: `claude-code install plugin:cti-search-plugin`
-
-#### Secure PRD Plugin
-- **Marketplace ID**: `secure-prd-plugin`
-- **Description**: PRD generator with Confluence, Linear, Asana, Slack, Notion, and Gmail integrations
-- **Use Cases**: Automated PRD publishing, task creation, stakeholder notifications
-- **Dependencies**: Node.js 18+, MCP integrations for target platforms
-- **Install Command**: `claude-code install plugin:secure-prd-plugin`
-
-### Feature Descriptor — Phoenix Pipeline
-- **Marketplace ID**: `phoenix-pipeline`
-- **Description**: 12-role specification system for security-aware product requirements
-- **Use Cases**: Feature specification, security-first PRDs, RFC 2119 requirements
-- **Dependencies**: None (pure instruction-based)
-- **Install Command**: `claude-code install skill:phoenix-pipeline`
-- **Details**: See [`feature-descriptor/`](feature-descriptor/) for all 12 role definitions
-
-## Post-Installation Configuration
-
-### 1. Verify Installation
-
-**For Skills:**
-```bash
-# Check skill is installed
-ls ~/.claude/skills/cti-search-skill/
-
-# Or for Cursor
-ls ~/.cursor/skills/cti-search-skill/
-```
-
-**For Plugins:**
-```bash
-# Check plugin is installed
-ls ~/.claude/plugins/cti-search-plugin/
-
-# Verify dependencies
-cd ~/.claude/plugins/cti-search-plugin
-npm list
-```
-
-**For the Security Assessment Suite (post-install wiring step):**
-```bash
-# From your project root, after the marketplace package places the suite
-# under skills/Security Assessment/ :
-bash "skills/Security Assessment/install/install.sh" --full
-
-# Verify
-ls .claude/commands/                   # 4 *.md files: security-0day, security-review, security-assessment, threatmodel
-ls .claude/agents/                     # security-reviewer.md (full preset only)
-cat .claude/settings.json              # SessionStart / PreToolUse / PostToolUse / SessionEnd hook entries
-
-# Smoke test the SessionEnd reminder
-bash "skills/Security Assessment/install/hooks/session-end-security-0day.sh"
-
-# In Claude Code, type /  → confirm the four security commands appear.
-```
-
-To uninstall just the suite (preserves the rest of `.claude/`):
-```bash
-bash "skills/Security Assessment/install/install.sh" --uninstall
-```
-
-### 2. Configure API Keys
-
-The CTI Search functionality requires a search API provider.
-
-#### Option A: Brave Search (Recommended)
-
-1. **Get API Key**:
-   - Visit [api.search.brave.com](https://api.search.brave.com/app/keys)
-   - Sign up for free account
-   - Create an API key (2,000 requests/month free)
-
-2. **Set Environment Variable**:
-   ```bash
-   # Add to ~/.bashrc, ~/.zshrc, or ~/.profile
-   export BRAVE_SEARCH_API_KEY=your_api_key_here
-   export SEARCH_PROVIDER=brave
-   ```
-
-3. **Or use .env file**:
-   ```bash
-   cd ~/.claude/plugins/cti-search-plugin
-   cp .env.example .env
-   # Edit .env and add your key
-   ```
-
-#### Option B: SerpAPI
-
-1. **Get API Key**:
-   - Visit [serpapi.com](https://serpapi.com)
-   - Sign up for free account (100 requests/month)
-   - Get your API key
-
-2. **Set Environment Variable**:
-   ```bash
-   export SERPAPI_KEY=your_api_key_here
-   export SEARCH_PROVIDER=serpapi
-   ```
-
-### 3. Optional: NotebookLM Integration
-
-To enable automatic pushing of research to NotebookLM:
-
-1. **Install NotebookLM Connector**:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/claude-code-zero /tmp/ccz
-   cp -r /tmp/ccz/plugins/notebooklm-connector ~/.claude/plugins/
-   cd ~/.claude/plugins/notebooklm-connector && npm install
-   ```
-
-2. **Get Notebook ID**:
-   - Go to your NotebookLM notebook
-   - Copy the ID from the URL: `https://notebooklm.google.com/notebook/<YOUR-ID>`
-
-3. **Set Environment Variable**:
-   ```bash
-   export NOTEBOOKLM_NOTEBOOK_ID=your_notebook_id_here
-   ```
-
-### 4. Restart Claude Code
-
-After configuration:
-```bash
-# Restart Claude Code to load new environment variables
-# Or reload window: Cmd/Ctrl + Shift + P → "Reload Window"
-```
-
-## Testing Your Installation
-
-### Test the Skill
-
-Open Claude Code and ask:
-
-```
-Search for threat intelligence on CVE-2024-21762
-```
-
-Expected behavior:
-- Skill activates automatically
-- Claude searches across security domains
-- Returns structured CTI brief with sources
-
-### Test the Plugin (CLI)
-
-```bash
-cd ~/.claude/plugins/cti-search-plugin
-node index.js --query "CVE-2024-21762" --dry-run
+claude plugin marketplace add Security-Phoenix-demo/security-skills-claude-code
 ```
 
 Expected output:
-```
-Processing query: CVE-2024-21762
-[Dry run mode - no actual search performed]
-✓ Configuration valid
-✓ API key present
-✓ Domain list loaded (595 domains)
-```
-
-### Test the Plugin (MCP)
-
-In Claude Code, ask:
 
 ```
-Use the CTI search tool to find recent LockBit ransomware reports
+✔ Successfully added marketplace: phoenix-security
 ```
 
-Expected behavior:
-- Claude calls the `cti_search` MCP tool
-- Returns structured results with URLs
-- Offers to push to NotebookLM if configured
+The marketplace is named **`phoenix-security`**. That is the name you use after the `@` in
+every install command.
 
-## Troubleshooting
+---
 
-### Skill Not Activating
+## Step 2 — install the plugins
 
-**Problem**: Skill doesn't trigger when asking relevant questions
+Install all six:
 
-**Solutions**:
-1. Verify installation:
-   ```bash
-   ls ~/.claude/skills/cti-search-skill/SKILL.md
-   ```
-2. Check skill is enabled in Claude Code settings
-3. Try more explicit trigger phrases:
-   - "Use the CTI domain research skill to..."
-   - "Search security domains for..."
-4. Restart Claude Code
+```
+/plugin install phoenix-security-review@phoenix-security
+/plugin install phoenix-readiness-reviews@phoenix-security
+/plugin install phoenix-sast-rules@phoenix-security
+/plugin install phoenix-cti-search@phoenix-security
+/plugin install phoenix-prd-pipeline@phoenix-security
+/plugin install phoenix-docs-research@phoenix-security
+```
 
-### Plugin Not Found
+Or install only what you need. Each plugin is independent — nothing depends on anything else.
 
-**Problem**: "Tool not found" or "Plugin not available" errors
+Prefer a browser-style UI? Just type `/plugin` and pick from the list.
 
-**Solutions**:
-1. Verify plugin installation:
-   ```bash
-   ls ~/.claude/plugins/cti-search-plugin/
-   ```
-2. Check MCP server is registered:
-   - Open Claude Code settings
-   - Check MCP servers list
-   - Ensure `cti-search-plugin` is listed
-3. Check Node.js version:
-   ```bash
-   node --version  # Should be 18+
-   ```
-4. Reinstall dependencies:
-   ```bash
-   cd ~/.claude/plugins/cti-search-plugin
-   npm install
-   ```
+### Scope
 
-### API Key Errors
-
-**Problem**: "API key not found" or "Authentication failed"
-
-**Solutions**:
-1. Verify environment variable is set:
-   ```bash
-   echo $BRAVE_SEARCH_API_KEY
-   # or
-   echo $SERPAPI_KEY
-   ```
-2. Check .env file exists and has correct key:
-   ```bash
-   cat ~/.claude/plugins/cti-search-plugin/.env
-   ```
-3. Verify API key is valid:
-   - Test at provider's website
-   - Check quota hasn't been exceeded
-4. Restart terminal and Claude Code after setting env vars
-
-### Search Returns No Results
-
-**Problem**: Search completes but returns empty results
-
-**Solutions**:
-1. Try broader query terms
-2. Check specific domain tier:
-   ```bash
-   node index.js --query "test" --tier 1
-   ```
-3. Verify domain list is present:
-   ```bash
-   wc -l ~/.claude/plugins/cti-search-plugin/data/domains.txt
-   # Should show 595+ lines
-   ```
-4. Check API quota hasn't been exceeded
-
-### NotebookLM Integration Not Working
-
-**Problem**: `--notebooklm` flag doesn't push sources
-
-**Solutions**:
-1. Verify connector is installed:
-   ```bash
-   ls ~/.claude/plugins/notebooklm-connector/
-   ```
-2. Check notebook ID is set:
-   ```bash
-   echo $NOTEBOOKLM_NOTEBOOK_ID
-   ```
-3. Verify notebook ID is valid (from NotebookLM URL)
-4. Check connector dependencies:
-   ```bash
-   cd ~/.claude/plugins/notebooklm-connector
-   npm install
-   ```
-
-## Updating Installed Packages
-
-### Update via Marketplace
-
-1. Open Claude Code
-2. Go to Skills/Plugins menu
-3. Check for updates
-4. Click "Update" on packages with available updates
-
-### Manual Update
+By default a plugin installs at **user** scope, so it is available in every project on this
+machine. To scope one to the current project instead:
 
 ```bash
-# For skills
-cd ~/.claude/skills/cti-search-skill
-git pull  # If installed via git
-
-# For plugins
-cd ~/.claude/plugins/cti-search-plugin
-git pull  # If installed via git
-npm install  # Update dependencies
-```
-
-## Uninstalling
-
-### Via Marketplace
-
-1. Open Claude Code
-2. Go to Skills/Plugins menu
-3. Find the package
-4. Click "Uninstall"
-
-### Manual Uninstall
-
-```bash
-# Remove skill
-rm -rf ~/.claude/skills/cti-search-skill
-
-# Remove plugin
-rm -rf ~/.claude/plugins/cti-search-plugin
-
-# Remove environment variables from shell config
-# Edit ~/.bashrc, ~/.zshrc, or ~/.profile and remove:
-# export BRAVE_SEARCH_API_KEY=...
-# export NOTEBOOKLM_NOTEBOOK_ID=...
-```
-
-## Getting Help
-
-### Documentation
-
-- **Main README**: [README.md](README.md)
-- **CTI Skill Docs**: [skills/cti-search-skill/SKILL.md](skills/cti-search-skill/SKILL.md)
-- **CTI Plugin Docs**: [plugins/cti-search-plugin/README.md](plugins/cti-search-plugin/README.md)
-- **Contributing Guide**: [CONTRIBUTING.md](CONTRIBUTING.md)
-
-### Support Channels
-
-- **GitHub Issues**: [Report bugs or request features](https://github.com/YOUR_USERNAME/security-skills-claude-code/issues)
-- **GitHub Discussions**: [Ask questions or share ideas](https://github.com/YOUR_USERNAME/security-skills-claude-code/discussions)
-- **Documentation**: Check the detailed README files in each skill/plugin directory
-
-## Next Steps
-
-After successful installation:
-
-1. **Explore Examples**: Try the example queries in the documentation
-2. **Customize Configuration**: Adjust settings for your workflow
-3. **Integrate with NotebookLM**: Set up automatic research ingestion
-4. **Provide Feedback**: Share your experience and suggestions
-
-## Quick Reference
-
-### Common Commands
-
-```bash
-# Test plugin CLI
-node ~/.claude/plugins/cti-search-plugin/index.js --query "test" --dry-run
-
-# Check installation
-ls ~/.claude/skills/cti-search-skill/
-ls ~/.claude/plugins/cti-search-plugin/
-
-# View environment variables
-env | grep -E 'BRAVE|SERPAPI|NOTEBOOKLM'
-
-# Update plugin dependencies
-cd ~/.claude/plugins/cti-search-plugin && npm install
-```
-
-### Common Queries
-
-```
-# CVE research
-Search for threat intelligence on CVE-2024-XXXX
-
-# Threat actor analysis
-What are security vendors saying about LockBit?
-
-# Malware research
-Find recent analysis of ALPHV ransomware
-
-# General security research
-Search security blogs for supply chain attacks
-
-# With NotebookLM
-Research CVE-2024-XXXX and push to NotebookLM
+claude plugin install phoenix-readiness-reviews@phoenix-security --scope project
 ```
 
 ---
 
-**Happy threat hunting!** 🔍🛡️
+## Step 3 — verify
+
+```bash
+# Everything installed, and which marketplace it came from
+claude plugin list
+
+# What one plugin actually exposes: skills, agents, hooks, MCP servers, token cost
+claude plugin details phoenix-security-review
+```
+
+`claude plugin details` is the fastest way to confirm a skill loaded. It prints the component
+inventory and the projected token cost — the always-on cost is what each skill's description
+adds to every session, and the on-invoke cost is what you pay each time a skill fires.
+
+Then, in a session, type `/` and confirm the commands appear:
+
+```
+/security-review    /security-0day    /security-audit    /threatmodel
+/plan-readiness-review    /production-readiness-review
+/cti-search
+```
+
+---
+
+## Team-wide auto-install
+
+Commit this to your repository's `.claude/settings.json`. Every teammate gets the
+marketplace and the plugins on their next session, with no manual step:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "phoenix-security": {
+      "source": {
+        "source": "github",
+        "repo": "Security-Phoenix-demo/security-skills-claude-code"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "phoenix-security-review@phoenix-security": true,
+    "phoenix-readiness-reviews@phoenix-security": true,
+    "phoenix-sast-rules@phoenix-security": true
+  }
+}
+```
+
+List only the plugins your team should actually get. Each enabled plugin adds its skills'
+descriptions to every session, so a shorter list means a smaller always-on context cost.
+
+---
+
+## Per-plugin setup
+
+Five of the six plugins need no setup at all. These are the exceptions.
+
+### Finding a plugin's directory on disk
+
+Two of the setup steps below need the path where a plugin actually landed. It depends on how
+you added the marketplace:
+
+| Marketplace source | Plugin path |
+|---|---|
+| GitHub repo | `~/.claude/plugins/marketplaces/phoenix-security/plugins/<plugin-name>` |
+| Local directory | `<that directory>/plugins/<plugin-name>` |
+
+`claude plugin marketplace list` prints the source, so this always works:
+
+```bash
+MP=~/.claude/plugins/marketplaces/phoenix-security     # GitHub route
+# MP=/path/to/your/checkout                            # local-directory route
+```
+
+### phoenix-cti-search — Node and an API key
+
+The `cti-domain-research` skill works immediately with no setup: it does the same tiered
+search using Claude's own web-search tools. The bundled CLI and MCP server are faster and
+scriptable, and those need Node plus a search key.
+
+```bash
+CTI="$MP/plugins/phoenix-cti-search"
+cd "$CTI"
+npm install --omit=dev
+cp .env.example .env
+```
+
+Then edit `.env`:
+
+```bash
+# Option A — Brave Search (recommended: 2,000 free requests a month)
+SEARCH_PROVIDER=brave
+BRAVE_SEARCH_API_KEY=your_key_here
+
+# Option B — SerpAPI (100 free requests a month)
+SEARCH_PROVIDER=serpapi
+SERPAPI_KEY=your_key_here
+
+# Option C — Google Custom Search
+SEARCH_PROVIDER=google
+GOOGLE_CSE_KEY=your_key_here
+GOOGLE_CSE_ID=your_cse_id_here
+
+# Optional — push results into a NotebookLM notebook
+NOTEBOOKLM_NOTEBOOK_ID=your_notebook_id_here
+```
+
+Get the keys here:
+
+- Brave Search — [api.search.brave.com/app/keys](https://api.search.brave.com/app/keys)
+- SerpAPI — [serpapi.com](https://serpapi.com)
+
+Smoke test, no API call made:
+
+```bash
+node "$CTI/index.js" --query "CVE-2024-21762" --dry-run
+```
+
+**MCP server.** `mcp-server.js` ships with the plugin but is not wired automatically. To
+register it, add it to your MCP config pointing at
+`$CTI/mcp-server.js` with `node` as the command.
+
+### phoenix-security-review — the hooks are opt-in
+
+Installing the plugin gives you the six skills, four commands and the subagent right away.
+The three **active hooks** are deliberately *not* wired on install, because a `PreToolUse`
+gate on every Bash call and a scan on every file write should be your choice, not a side
+effect of installing a plugin.
+
+To wire them into a project:
+
+```bash
+PLUGIN="$MP/plugins/phoenix-security-review"
+cd /path/to/your/project
+bash "$PLUGIN/install/install.sh" --full
+```
+
+Variants:
+
+| Command | Effect |
+|---|---|
+| `install.sh` or `install.sh --lite` | Slash commands + the SessionEnd reminder hook only. Zero LLM cost |
+| `install.sh --full` | Everything in lite, plus the three active hooks, plus the subagent |
+| `install.sh --dry-run [--lite\|--full]` | Show what would change, write nothing |
+| `install.sh --uninstall` | Remove the commands and subagent, restore `.claude/settings.json` from its backup |
+
+What the three hooks do:
+
+- **`SessionStart`** fingerprints the project, runs a fast dependency audit (osv-scanner if
+  installed, else the per-ecosystem audit), and injects a `## SECURITY CONTEXT` block that
+  every agent reads before its first turn.
+- **`PreToolUse` on `Bash`** gates package-manager installs. It blocks known-malicious
+  packages and asks on typosquats and brand-new packages.
+- **`PostToolUse` on `Edit|Write|MultiEdit`** runs a fast pattern scan on each file write
+  and feeds findings back through `additionalContext`.
+
+**Other editors.** `install/windsurf/` holds a Windsurf rule and two workflows.
+`install/codex/AGENTS.md.snippet` is a behavioural instruction for Codex CLI, which has no
+hook system.
+
+### phoenix-docs-research — the notebooklm skill
+
+Needs Python 3, a Chrome or Edge browser, the "Claude in Chrome" extension, and a Google
+account with NotebookLM access.
+
+```bash
+NB="$MP/plugins/phoenix-docs-research/skills/notebooklm"
+python3 -m pip install -r "$NB/requirements.txt"
+python3 "$NB/scripts/setup_environment.py"
+```
+
+Get a notebook ID from the URL: `https://notebooklm.google.com/notebook/<YOUR-ID>`.
+
+> **Know this before you rely on it:** the skill stores its browser session and notebook
+> library under its own directory. A plugin directory is managed by Claude Code and is
+> replaced on `/plugin update`, so an update can drop your saved login and library. Back
+> up `$NB/data/library.json` before updating, or install this one skill by copying it into
+> `~/.claude/skills/` instead.
+
+---
+
+## Updating
+
+```
+/plugin marketplace update phoenix-security          # refresh the catalogue
+/plugin update phoenix-security-review@phoenix-security
+```
+
+From the shell:
+
+```bash
+claude plugin marketplace update phoenix-security
+claude plugin update phoenix-security-review@phoenix-security
+```
+
+A plugin update needs a restart to take effect.
+
+After updating `phoenix-cti-search`, re-run `npm install --omit=dev` if `package.json`
+changed. Your `.env` is not tracked by git, but a plugin update replaces the plugin
+directory — copy `.env` somewhere safe first.
+
+---
+
+## Uninstalling
+
+```
+/plugin uninstall phoenix-security-review@phoenix-security
+```
+
+To remove the marketplace and everything from it:
+
+```bash
+claude plugin marketplace remove phoenix-security
+```
+
+If you wired the `phoenix-security-review` hooks into a project, unwire them first — the
+installer tracks what it created, so the removal is clean:
+
+```bash
+bash "$PLUGIN/install/install.sh" --uninstall
+```
+
+---
+
+## Installing from a local checkout
+
+Use this while writing or changing a skill. A marketplace can point at a directory instead
+of a repository, and your edits take effect immediately.
+
+```bash
+git clone https://github.com/Security-Phoenix-demo/security-skills-claude-code.git
+cd security-skills-claude-code
+claude plugin marketplace add "$(pwd)"
+claude plugin install phoenix-readiness-reviews@phoenix-security
+```
+
+Validate before you push:
+
+```bash
+claude plugin validate .                                    # the marketplace manifest
+claude plugin validate plugins/phoenix-security-review      # one plugin manifest
+claude plugin validate --strict plugins/*/skills            # every skill's frontmatter
+```
+
+`--strict` fails on unrecognised fields and missing metadata — use it in CI. A local
+marketplace and the GitHub one cannot both be named `phoenix-security` at the same time, so
+remove one before adding the other.
+
+---
+
+## Copying a single skill instead
+
+A skill directory is fully self-contained. Copy one in and it becomes a slash command named
+after the directory, with no manifest and no marketplace:
+
+```bash
+# personal — every project on this machine
+cp -r plugins/phoenix-readiness-reviews/skills/* ~/.claude/skills/
+
+# project-scoped — committed, so the team gets it
+cp -r plugins/phoenix-readiness-reviews/skills/* .claude/skills/
+```
+
+Claude Code watches these directories, so an edit lands in the running session with no
+restart. Two limits to know:
+
+- `~/.claude/skills/` is **not** read by Cowork or cloud sessions. Use the plugin route, or
+  enable the skill on your claude.ai account, for those.
+- Copied skills are not versioned and `/plugin update` does not touch them. You update them
+  by copying again.
+
+Make any bundled script executable after copying:
+
+```bash
+chmod +x ~/.claude/skills/production-readiness-review/scripts/scan_repo.sh
+```
+
+---
+
+## Troubleshooting
+
+### `/plugin marketplace add` fails
+
+- **`marketplace.json not found`** — you pointed at the wrong place. The manifest must be at
+  `.claude-plugin/marketplace.json` in the repository root. Check with
+  `claude plugin validate <path>`.
+- **A marketplace with that name already exists** — `claude plugin marketplace remove
+  phoenix-security` first. This bites most often when you already added a local checkout.
+- **Git clone failed** — the repository must be reachable with your current credentials. Try
+  `git clone` by hand to see the real error.
+
+### A skill never fires
+
+1. Confirm it is loaded: `claude plugin details <plugin-name>` and look for it in the
+   component inventory. If it is missing, the plugin is installed but the skill did not
+   parse.
+2. Confirm the plugin is **enabled**, not just installed: type `/plugin` and check.
+3. Invoke it explicitly to rule out description matching:
+   `/phoenix-readiness-reviews:plan-readiness-review`.
+4. Still nothing? `claude plugin validate --strict <plugin>/skills` will name the file and
+   the field that is wrong.
+
+### Two commands with the same name
+
+Claude Code resolves the bare name to one of them. Use the namespaced form —
+`/phoenix-security-review:security-assessment` — to be unambiguous. The clash is usually
+another marketplace or a skill in `~/.claude/skills/` claiming the same name.
+
+### `Cannot find module` from `/cti-search`
+
+The Node dependencies are not installed. See
+[phoenix-cti-search setup](#phoenix-cti-search--node-and-an-api-key).
+
+### `No search provider configured`
+
+There is no `.env`, or the key in it is empty. The CLI reads `.env` from the plugin
+directory, not from your project. Verify:
+
+```bash
+cat ~/.claude/plugins/marketplaces/phoenix-security/plugins/phoenix-cti-search/.env
+```
+
+If you would rather not manage a key, use the `cti-domain-research` skill — same tiered
+search, no key needed.
+
+### CTI search returns nothing
+
+- Your query may be too narrow. Widen it, or raise `--since` (default is 90 days).
+- Try a broader tier: `--tier 1` is the highest-authority sources only.
+- Confirm the key works at all: `node "$CTI/index.js" --query test --dry-run`.
+- A free-tier quota may be exhausted. Brave gives 2,000 requests a month.
+
+### The hooks do not run
+
+- Confirm the scripts are executable:
+  `chmod +x "$PLUGIN/hooks/"*.sh`
+- Confirm the wiring landed in a **project-level** `.claude/settings.json` — project settings
+  beat user settings.
+- Run a hook by hand to see its output. It should print JSON, not an error.
+- `ripgrep` is required by the post-edit quickscan hook.
+
+### NotebookLM will not connect
+
+- Chrome or Edge must be running, with the "Claude in Chrome" extension installed.
+- You must be signed in to the Google account that has the notebook.
+- Re-run `python3 "$NB/scripts/setup_environment.py"`.
+- If a `/plugin update` wiped the saved session, re-authenticate — see the warning in
+  [per-plugin setup](#phoenix-docs-research--the-notebooklm-skill).
+
+### The scanner reports nothing useful
+
+`production-readiness-review`'s scanner emits **leads, not findings**. A `TODO` in a test
+fixture is not a defect. If it finds nothing at all, check you passed a real base ref:
+
+```bash
+bash "$SKILL/scripts/scan_repo.sh" . --base origin/main
+```
+
+Without a valid base it skips the change-surface sections silently.
+
+---
+
+## Quick reference
+
+### Commands
+
+```bash
+claude plugin marketplace add <owner>/<repo>       # or a local absolute path
+claude plugin marketplace list
+claude plugin marketplace update phoenix-security
+claude plugin marketplace remove phoenix-security
+claude plugin install <plugin>@phoenix-security [--scope user|project|local]
+claude plugin update <plugin>@phoenix-security
+claude plugin uninstall <plugin>@phoenix-security
+claude plugin list
+claude plugin details <plugin>
+claude plugin validate <path> [--strict]
+```
+
+In a session: `/plugin`, `/plugin marketplace add`, `/plugin install`, `/plugin update`.
+
+### Where things land
+
+| Path | What it is |
+|---|---|
+| `~/.claude/plugins/marketplaces/phoenix-security/` | The cloned marketplace — all six plugins live under `plugins/` here |
+| `~/.claude/plugins/installed_plugins.json` | What is installed, and at which scope |
+| `~/.claude/skills/` | Skills you copied in by hand (Method 3) |
+| `.claude/settings.json` | Project-level marketplace + enabled-plugin declarations |
+
+### Try it
+
+```
+review this PRD before we build it              → plan-readiness-review
+is this branch actually ready to ship?          → production-readiness-review
+/security-review auth                          → 8-point check on auth surfaces
+/security-0day origin/main                      → diff-scoped exploit scan
+/threatmodel src/payments/                      → STRIDE + DREAD model
+/cti-search CVE-2024-21762                      → tiered threat-intel search
+write a PRD for passwordless login              → prd-generator
+document this codebase                          → project-documenter
+```
+
+---
+
+## Getting help
+
+- **[README.md](README.md)** — full skill and plugin reference, FAQ
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — how to add a skill or a plugin
+- **Issues** — [github.com/Security-Phoenix-demo/security-skills-claude-code/issues](https://github.com/Security-Phoenix-demo/security-skills-claude-code/issues)
+- **Phoenix Security** — [phoenix.security](https://phoenix.security)
+
+---
+
+**License:** MIT — see [LICENSE](LICENSE).

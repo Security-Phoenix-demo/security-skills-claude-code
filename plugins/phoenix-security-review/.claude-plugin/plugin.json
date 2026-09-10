@@ -1,0 +1,11 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "phoenix-security-review",
+  "version": "1.0.0",
+  "description": "AppSec review suite: multi-language security-reviewer (8-point check, 7 language packs, OWASP/ASVS + endpoint checklists), whole-repo security-assessment, diff-scoped 0day-scanner, STRIDE/DREAD threat-modeling, and two threat-model-driven tiers (tm-quick-security-assessment, tm-security-review). Ships 4 slash commands, a security-reviewer subagent, and 3 opt-in hooks.",
+  "author": { "name": "Phoenix Security", "email": "admin@phoenix.security", "url": "https://phoenix.security" },
+  "homepage": "https://github.com/Security-Phoenix-demo/security-skills-claude-code",
+  "repository": "https://github.com/Security-Phoenix-demo/security-skills-claude-code",
+  "license": "MIT",
+  "keywords": ["security", "appsec", "owasp", "asvs", "threat-modeling", "stride", "code-review", "sast", "zero-day"]
+}

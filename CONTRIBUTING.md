@@ -210,7 +210,7 @@ A skill needs no installer. It is distributed by the plugin it lives in. What it
 frontmatter that parses:
 
 ```bash
-claude plugin validate --strict plugins/phoenix-security-review/skills
+claude plugin validate --strict plugins/phoenix-security-review
 ```
 
 `--strict` fails on unrecognised fields and missing metadata. Fix everything it reports
@@ -646,7 +646,7 @@ Two validators, because they cover different ground. CI runs both, so run both:
 python3 scripts/validate-marketplace.py                  # does everything fit together?
 claude plugin validate .                                 # the marketplace manifest
 claude plugin validate plugins/your-plugin-name          # the plugin manifest
-claude plugin validate --strict plugins/*/skills         # every skill's frontmatter
+claude plugin validate --strict plugins/your-plugin-name # its skills, commands and agents
 ```
 
 `claude plugin validate` checks schema and frontmatter *shape*. It does not check that
@@ -706,7 +706,7 @@ hard-coded path — replace it with `${CLAUDE_SKILL_DIR}`.
 
 - [ ] `python3 scripts/validate-marketplace.py` passes with no errors
 - [ ] `claude plugin validate .` passes
-- [ ] `claude plugin validate --strict plugins/*/skills` passes
+- [ ] `claude plugin validate --strict plugins/<plugin>` passes
 - [ ] CI is green on the PR
 - [ ] `claude plugin details <plugin>` lists every component you added
 - [ ] No slash-name clash with any other plugin in this repository

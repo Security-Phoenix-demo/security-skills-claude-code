@@ -369,7 +369,8 @@ Validate before you push:
 ```bash
 claude plugin validate .                                    # the marketplace manifest
 claude plugin validate plugins/phoenix-security-review      # one plugin manifest
-claude plugin validate --strict plugins/*/skills            # every skill's frontmatter
+claude plugin validate --strict plugins/phoenix-security-review  # its skills, commands, agents
+python3 scripts/validate-marketplace.py                     # does everything fit together?
 ```
 
 `--strict` fails on unrecognised fields and missing metadata — use it in CI. A local

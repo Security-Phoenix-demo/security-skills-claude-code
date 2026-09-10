@@ -59,26 +59,22 @@ jobs:
       - name: Marketplace manifest
         run: claude plugin validate .
 
-      - name: Every plugin manifest
+      # Validating the plugin directory covers its components too — verified by
+      # breaking a skill's, a command's and an agent's frontmatter in turn and
+      # confirming each one fails here.
+      #
+      # Do NOT add a separate pass over plugins/*/skills. That path is ambiguous to
+      # the CLI: given the same version and the same tree it reported "Validating
+      # components in" locally but "No manifest found in directory" on the runner.
+      # The plugin directory is unambiguous — it holds .claude-plugin/plugin.json —
+      # and it makes the extra pass redundant anyway.
+      - name: Every plugin, and every skill, command and agent inside it
         run: |
           fail=0
           for d in plugins/*/; do
             echo "::group::${d}"
             claude plugin validate --strict "$d" || fail=1
             echo "::endgroup::"
-          done
-          exit $fail
-
-      - name: Every skill, command and agent
-        run: |
-          fail=0
-          for d in plugins/*/; do
-            for sub in skills commands agents; do
-              [ -d "$d$sub" ] || continue
-              echo "::group::${d}${sub}"
-              claude plugin validate --strict "$d$sub" || fail=1
-              echo "::endgroup::"
-            done
           done
           exit $fail
 

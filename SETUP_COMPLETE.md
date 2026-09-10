@@ -93,9 +93,9 @@ Commands: `/security-review` `/security-0day` `/security-audit` `/threatmodel`
 ## Validating the repository
 
 ```bash
-claude plugin validate .                          # marketplace manifest
-claude plugin validate plugins/<plugin-name>      # one plugin manifest
-claude plugin validate --strict plugins/*/skills  # every skill's frontmatter
+python3 scripts/validate-marketplace.py             # does everything fit together?
+claude plugin validate .                            # marketplace manifest
+claude plugin validate --strict plugins/<plugin>    # its skills, commands and agents
 ```
 
 ---

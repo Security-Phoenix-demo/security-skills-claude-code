@@ -9,6 +9,12 @@ A bundle of four complementary security skills plus parameterized testing runboo
 Each skill solves a different problem at a different price point — pick the one that
 matches what you're doing right now.
 
+On top of those four, two **threat-model-driven composite tiers** chain the primitives into a
+model-first workflow (build/ingest a STRIDE model, then let it steer and *severity-correct* the
+scan): **`tm-quick-security-assessment`** (fast, worktree/branch-diff scoped) and
+**`tm-security-review`** (comprehensive, whole-repo, full threat model as input). See
+[Threat-model-driven tiers](#threat-model-driven-tiers-composite) below.
+
 This suite is the **open-source companion** to **[Phoenix Purple](https://phoenix.security/phoenix-purple-ai-sast-sca-ai-generated-code/)** — Phoenix Security's enhanced AppSec and remediation product. The skills here distill the same thinking (pre-merge AppSec review, OWASP/ASVS coverage, threat-model-driven design) into commands you can run inside Claude Code, Windsurf, or Codex without a backend. If you need graph-powered SAST with real taint paths, multi-step exploit chains, and PR-time + agent-time enforcement, that's [Phoenix Purple](https://phoenix.security/phoenix-purple-ai-sast-sca-ai-generated-code/). For threat-intelligence-driven supply-chain blocking, see **[Phoenix Blue](https://phoenix.security/phoenix-blue-ai-vulnerability-intelligence-cve-scoring/)** — the package guard hook in this suite is a minimal local stand-in for what Blue does at platform scale.
 
 > **TL;DR**
@@ -16,6 +22,10 @@ This suite is the **open-source companion** to **[Phoenix Purple](https://phoeni
 > - Endpoint, auth, render, or dependency change → **`/security-review`** (light, 8-point check)
 > - Pre-release / quarterly audit → **`/security-assessment`** (heavy, OWASP Top 10 + ASVS L1)
 > - New feature design / architecture review → **`/threatmodel`** (STRIDE + DREAD)
+>
+> **Threat-model-driven (composite):**
+> - Quick pre-merge check on a branch/worktree → **`tm-quick-security-assessment`** (diff-scoped, threat-model-aware)
+> - Deep, model-first review of an agentic/LLM/complex repo → **`tm-security-review`** (full STRIDE model as input + zeroday hunt)
 
 ---
 
@@ -27,10 +37,12 @@ This suite is the **open-source companion** to **[Phoenix Purple](https://phoeni
 | [`Security-automated-claude-skills/`](./Security-automated-claude-skills/) | **Canonical reviewer** — multi-language (Python, JS/TS, Go, Java/Kotlin, Rust, Ruby, .NET) skill + subagent + 3 active hooks (SessionStart fingerprint, PreToolUse Bash guard, PostToolUse quickscan). Includes language reference packs, OWASP/ASVS + endpoint checklists, triage playbook. Also serves as the on-disk fallback for `/security-assessment` and `/security-0day` when their MCP tools aren't reachable. | Low | New endpoint, auth/RBAC change, frontend render change — `/security-review` routes here |
 | [`security-assessment/`](./security-assessment/SKILL.md) | Full OWASP Top 10 (2025) + ASVS Level 1 sweep | High (~$8–$10 per run) | Pre-release, compliance, post-incident |
 | [`threat-modeling/`](./threat-modeling/SKILL.md) | Automated STRIDE/DREAD threat model with attack trees and mitigation mapping | Medium | Architecture review, new feature design, compliance docs |
+| [`tm-quick-security-assessment/`](./tm-quick-security-assessment/SKILL.md) | **Composite (quick tier).** Scopes to a git worktree/branch, diffs vs a base, and runs a fast threat-model-*aware* pass (attack-surface delta + OWASP on changed files, `0day-scanner` light) with the trust-direction gate. Returns a merge verdict + escalate flag. | Low | Pre-merge check on a branch/worktree |
+| [`tm-security-review/`](./tm-security-review/SKILL.md) | **Composite (comprehensive tier).** Builds/ingests a full STRIDE threat model as input, then a whole-repo adversarial zeroday review (`threat-modeling` + `0day-scanner` deep, triple-pass HUNT→JUDGE→VERIFY) with a runnable PoC + evidence chain per finding. | Med–High | Deep, model-first review of an agentic/LLM/complex repo |
 | [`Security-Analysis-Agent/`](./Security-Analysis-Agent/) | Parameterized backend/frontend tester + runbook templates (technology-agnostic, hydrate placeholders before use) | n/a (templates) | Drop-in scaffolding for stack-specific testing |
 | [`install/`](./install/) | Slash commands, hooks (lite + full presets), Windsurf rules/workflows, Codex `AGENTS.md` snippet | n/a | Wire the skills into your tool of choice |
 
-> **No redundancy.** The four skills cover non-overlapping scopes (diff vs review vs sweep vs design). Don't merge them. The bundle's checklists and language packs are the *shared resource* the other skills fall back to when their MCP tools aren't reachable.
+> **No redundancy.** The four base skills cover non-overlapping scopes (diff vs review vs sweep vs design). Don't merge them. The bundle's checklists and language packs are the *shared resource* the other skills fall back to when their MCP tools aren't reachable. The two `tm-*` composite tiers do not add new engines — they **orchestrate** the base skills (threat-modeling + 0day-scanner / security-assessment) behind a model-first workflow and a trust-direction gate.
 >
 > **Archived:** the older single-file `Security-reviewr/` reviewer was superseded by the bundle's multi-language version and moved to [`_archive/`](./_archive/). Recover by moving it back if you need it.
 
@@ -39,16 +51,54 @@ This suite is the **open-source companion** to **[Phoenix Purple](https://phoeni
 ## When to use which — decision tree
 
 ```
-Are you reviewing a specific diff/PR/commit?
-├── Yes → /security-0day
-└── No → Did the change touch endpoints/auth/render/deps/config?
-        ├── Yes → /security-review  (8-point check, fast)
-        └── No → Are you about to ship / quarterly audit?
-                ├── Yes → /security-assessment  (heavy, OWASP + ASVS)
-                └── No → Are you designing a new feature or architecture?
-                        ├── Yes → /threatmodel
-                        └── No → You probably don't need this suite right now.
+Is this an agentic/LLM/MCP or otherwise trust-boundary-heavy repo, or do you
+already have (or want) a threat model to drive and severity-correct the scan?
+├── Yes → Quick pre-merge check on a branch?
+│         ├── Yes → tm-quick-security-assessment   (model-aware, diff-scoped)
+│         └── No  → tm-security-review             (full model as input + zeroday hunt)
+└── No → Are you reviewing a specific diff/PR/commit?
+        ├── Yes → /security-0day
+        └── No → Did the change touch endpoints/auth/render/deps/config?
+                ├── Yes → /security-review  (8-point check, fast)
+                └── No → Are you about to ship / quarterly audit?
+                        ├── Yes → /security-assessment  (heavy, OWASP + ASVS)
+                        └── No → Are you designing a new feature or architecture?
+                                ├── Yes → /threatmodel
+                                └── No → You probably don't need this suite right now.
 ```
+
+---
+
+## Threat-model-driven tiers (composite)
+
+The four base skills each answer *"what's wrong in this code?"* well, but a bare scan enumerates
+source→sink flows without asking **"is this source actually lower-trust than the sink it reaches?"**
+So it over-rates operator-controlled inputs (a CLI flag, a config value, a JAR on the classpath) as
+HIGH, and misses the design-level risk that no pattern scanner can test — e.g. an
+indirect-prompt-injection → auto-exec chain in an agentic/LLM system.
+
+The two `tm-*` tiers fix that by putting a **threat model first** and using it to steer the scan and
+correct severities. They add no new engine — they orchestrate `threat-modeling`, `0day-scanner`, and
+`security-assessment` behind a shared spine: **model/context first → trust-direction gate →
+OWASP-LLM mapping for AI surfaces**.
+
+| Tier | Skill | Scope | Threat model | Engine | Output |
+|---|---|---|---|---|---|
+| **Quick** | [`tm-quick-security-assessment`](./tm-quick-security-assessment/SKILL.md) | Git worktree/branch **diff** vs base — changed files only | *Aware* — uses one if present, doesn't build it | `security-assessment` (OWASP) + `0day-scanner` **light** on the diff | Merge verdict (PASS / NOTES / BLOCK) + per-finding fix + **escalate flag** |
+| **Comprehensive** | [`tm-security-review`](./tm-security-review/SKILL.md) | **Whole repo** | Full STRIDE model **built/ingested as input** | `threat-modeling` + `0day-scanner` **deep** (HUNT→JUDGE→VERIFY) | Runnable PoC + `[[path:line]]` evidence chain + residual rating per finding |
+
+**They chain.** The quick tier raises an **escalate flag** whenever a change touches a trust boundary
+(new auth path, new exec/query sink, an LLM/MCP surface) — hand that off to `tm-security-review` for
+the deep, model-first follow-up.
+
+**The trust-direction gate (both tiers).** Before any finding keeps a HIGH: is the source genuinely
+controlled by a *lower-trust* party (external HTTP content, ingested third-party metadata, an
+anonymous request, another tenant)? Operator-supplied config/flags/classpath are the operator acting
+on their own system — demoted or refuted, with the reason recorded. Refutations are findings too:
+they stop bad HIGHs shipping and preserve reviewer credibility.
+
+> These two tiers are authored here and also copied to the parent [`skills/`](../) folder so they can
+> be picked up as standalone skills; both reference the base engines under `Security Assessment/`.
 
 ---
 

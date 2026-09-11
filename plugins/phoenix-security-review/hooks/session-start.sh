@@ -43,7 +43,7 @@ fi
 # the bash 3.2 that macOS still ships. Word splitting is safe here: detect_ecosystems
 # prints one short, fixed identifier per line (nodejs, python, go, ...) — never a path.
 ECOSYSTEMS=($(detect_ecosystems))
-if [[ ${#ECOSYSTEMS[@]-0} -eq 0 ]]; then
+if [[ ${#ECOSYSTEMS[@]} -eq 0 ]]; then
   log "no recognised ecosystem manifests; skipping deep audit"
 fi
 
@@ -51,7 +51,7 @@ fi
 {
   printf '## SECURITY CONTEXT (injected by .claude/hooks/session-start.sh)\n\n'
   printf 'Project root: `%s`\n' "$ROOT"
-  printf 'Detected ecosystems: %s\n' "${ECOSYSTEMS[*]-none}"
+  printf 'Detected ecosystems: %s\n' "${ECOSYSTEMS[*]:-none}"
   printf 'Generated at: %s\n\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
   # ----- Manifest fingerprint -----

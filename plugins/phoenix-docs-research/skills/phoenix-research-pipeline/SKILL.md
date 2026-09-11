@@ -237,5 +237,5 @@ The install writes `.env` directly — no manual copy from template needed. If t
 |-------|-----|
 | `NotAuthenticatedError` | Run `notebooklm login` in separate terminal |
 | `BRAVE_API_KEY not set` | Scrapling fallback auto-activates; set key for better results |
-| `No module named curl_cffi` | Run `pip install curl-cffi --break-system-packages` |
+| `No module named curl_cffi` | Re-run `scripts/install.sh`, or install it into the skill's `.venv` by hand |
 | yt-dlp returns 0 results | YouTube may rate-limit; retry after 30s or reduce `--count` |

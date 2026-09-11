@@ -8,31 +8,65 @@ echo "║   Phoenix Security — Research Pipeline Installer     ║"
 echo "╚══════════════════════════════════════════════════════╝"
 echo ""
 
+SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
 # Python dependencies
+#
+# This read `pip install ... --break-system-packages`, which installs into whatever
+# interpreter `pip` happens to resolve to and overrides PEP 668 — the guard that
+# exists precisely to stop a helper script from breaking a distro-managed Python.
+# On Debian, Fedora and Homebrew that is the system interpreter, and some managed
+# environments refuse the flag outright, so the install failed there anyway.
+#
+# A venv beside the skill is isolated, reproducible, and removed by deleting the
+# skill. Everything below runs through "$PY" so the verification checks the
+# interpreter the pipeline will actually use.
 echo "[1/4] Installing Python dependencies..."
-pip install yt-dlp scrapling notebooklm-py notebooklm-cli praw requests \
-            beautifulsoup4 rich curl-cffi browserforge --break-system-packages -q
-echo "  ✓ Python packages installed"
+
+PKGS=(yt-dlp scrapling notebooklm-py notebooklm-cli praw requests
+      beautifulsoup4 rich curl-cffi browserforge)
+VENV="$SKILL_DIR/.venv"
+
+if python3 -m venv "$VENV" 2>/dev/null; then
+  PY="$VENV/bin/python"
+  [ -x "$PY" ] || PY="$VENV/Scripts/python.exe"   # Windows layout
+  "$PY" -m pip install --upgrade pip -q
+  "$PY" -m pip install -q "${PKGS[@]}"
+  echo "  ✓ Python packages installed into $VENV"
+else
+  # Some minimal images ship python3 without the venv module. A per-user install
+  # still leaves the system interpreter alone.
+  echo "  (python3 -m venv unavailable — falling back to a per-user install)"
+  PY="python3"
+  "$PY" -m pip install --user -q "${PKGS[@]}"
+  echo "  ✓ Python packages installed for the current user"
+fi
 
 # Scrapling playwright (optional, for JS-heavy pages)
 echo ""
 echo "[2/4] Scrapling stealth fetchers (optional)..."
-python3 -c "import scrapling; scrapling.auto_install(True)" 2>/dev/null || \
+"$PY" -c "import scrapling; scrapling.auto_install(True)" 2>/dev/null || \
   echo "  (stealth fetchers skipped — basic fetcher available)"
 
 # Verify key binaries
 echo ""
 echo "[3/4] Verifying tools..."
-python3 -c "import yt_dlp; print('  ✓ yt-dlp', yt_dlp.version.__version__)"
-python3 -c "from scrapling import Fetcher; print('  ✓ scrapling')"
-python3 -c "from notebooklm import NotebookLMClient; print('  ✓ notebooklm-py')"
-/usr/local/bin/notebooklm --version 2>/dev/null && echo "  ✓ notebooklm-cli" || echo "  ⚠ notebooklm-cli not in PATH"
+"$PY" -c "import yt_dlp; print('  ✓ yt-dlp', yt_dlp.version.__version__)"
+"$PY" -c "from scrapling import Fetcher; print('  ✓ scrapling')"
+"$PY" -c "from notebooklm import NotebookLMClient; print('  ✓ notebooklm-py')"
+
+# The console script lands in the venv's bin, not /usr/local/bin — which is where
+# this looked, and why it reported "not in PATH" even on a good install.
+NOTEBOOKLM="$(dirname "$PY")/notebooklm"
+if [ -x "$NOTEBOOKLM" ] || NOTEBOOKLM="$(command -v notebooklm 2>/dev/null)"; then
+  "$NOTEBOOKLM" --version >/dev/null 2>&1 && echo "  ✓ notebooklm-cli"
+else
+  echo "  ⚠ notebooklm-cli not found"
+fi
 
 # Env setup — write .env with actual key
 echo ""
 echo "[4/4] Configuring API keys..."
-
-SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="$SKILL_DIR/.env"
 ENV_TEMPLATE="$SKILL_DIR/.env.template"
 

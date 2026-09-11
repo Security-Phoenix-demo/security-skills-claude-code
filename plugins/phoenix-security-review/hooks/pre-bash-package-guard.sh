@@ -114,19 +114,62 @@ log "package install detected: ecosystem=$ECO pm=$PM"
 # matches "pip3 install", and key "go:goget" gives PM=goget, which never matches
 # "go get". In both cases nothing was stripped, so the command name itself leaked
 # into the package list as a pseudo-package (pip3, go, get).
-TAIL="$(printf '%s' "${CMD#*"$PM_MATCH"}" \
-  | tr ' ' '\n' \
+# tr '[:space:]', not tr ' '. The detector accepts any whitespace between a package
+# manager and its arguments, so `npm install event-stream<TAB>lodash` arrived here as
+# a single tab-containing token. The validity grep dropped it, PACKAGES came out
+# empty, and the hook returned allow having checked neither name — one of which,
+# event-stream, is on the built-in blocklist forty lines below.
+CANDIDATES="$(printf '%s' "${CMD#*"$PM_MATCH"}" \
+  | tr '[:space:]' '\n' \
+  | grep -E -v '^$' \
   | grep -E -v '^(-|--)' \
-  | grep -E -v '^(install|add|i|--save|--save-dev|--dev|-D|-g|--global)$' \
-  | grep -E '^[a-zA-Z0-9@._/+:~^=<>-]+$' \
-  | head -20)"
+  | grep -E -v '^(install|add|i|--save|--save-dev|--dev|-D|-g|--global)$')"
+
+CANDIDATE_COUNT="$(printf '%s' "$CANDIDATES" | grep -c -E '^.+$' || true)"
+
+# Extras belong in the whitelist. `pip install requests[socks]` is ordinary, and
+# clean_pkg strips the bracket anyway (the ${p%%[[<>=!~^]*} below), so rejecting
+# [ ] and , here did nothing but empty PACKAGES and turn a check into an allow.
+# Bracket expression ordered for POSIX: ] first, - last.
+PKG_CHARS="]a-zA-Z0-9@._/+:~^=<>,\"'[-"
+
+# VALID is every token that reads as a package name; DROPPED is the rest. Both are
+# needed, because "some arguments were unreadable" and "no arguments were readable"
+# are different facts and only the second one used to be noticed.
+VALID="$(printf '%s' "$CANDIDATES" | grep -E "^[$PKG_CHARS]+\$")"
+VALID_COUNT="$(printf '%s' "$VALID" | grep -c -E '^.+$' || true)"
+DROPPED_COUNT=$(( CANDIDATE_COUNT - VALID_COUNT ))
+
+TAIL="$(printf '%s' "$VALID" | head -20)"
+
+# A shell removes quotes during word expansion, so npm receives `event-stream` from
+# all of 'event-stream', "event-stream", 'event'-stream and ev'ent-stream. Strip
+# every quote to ask the blocklist about the name the package manager will actually
+# see. Note the quotes come from variables: writing one literally inside ${p//.../}
+# opens a quoted region instead of being a pattern, which silently made the previous
+# form a no-op for single quotes and let `npm install 'event-stream'` through.
+SQ=$'\047'
+DQ='"'
 
 PACKAGES=()
 while IFS= read -r p; do
+  p="${p//$DQ/}"
+  p="${p//$SQ/}"
   [[ -n "$p" ]] && PACKAGES+=("$p")
 done <<< "$TAIL"
 
+# An install with no package argument is ordinary — `npm install` from a lockfile,
+# `pip install -r requirements.txt`. An install whose arguments ALL failed the
+# whitelist is not, and until now the two were indistinguishable: both returned
+# allow. Every bypass found in this function has ended on that line, so the two
+# cases are separated here and the second one asks.
 if [[ ${#PACKAGES[@]} -eq 0 ]]; then
+  if [[ "$CANDIDATE_COUNT" -gt 0 ]]; then
+    log "ASK: install command whose arguments could not be read: $CMD"
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' \
+      "$(printf '%s' "This is a package install, but none of its arguments could be read as a package name, so nothing was checked against the blocklist. Proceed only if you recognise the command." | jsonenc)"
+    exit 0
+  fi
   emit_json PreToolUse permissionDecision '"allow"'
   exit 0
 fi
@@ -159,6 +202,18 @@ ruby:rest-client-2
 # ---- Heuristic checks per package ----
 DENY_REASONS=()
 ASK_REASONS=()
+
+# `head -20` bounds the work above, and the whitelist drops tokens it cannot read.
+# Neither may happen in silence: `npm install <20 harmless> evil` reported on twenty
+# names, and `npm install lodash event\-stream` checked lodash and discarded the
+# other without a word. VALID_COUNT, not CANDIDATE_COUNT — the latter counts `&&`,
+# sub-commands and prose, so it named a fictitious number of packages.
+if [[ "$VALID_COUNT" -gt 20 ]]; then
+  ASK_REASONS+=("This command names $VALID_COUNT packages; only the first 20 were checked.")
+fi
+if [[ "$DROPPED_COUNT" -gt 0 ]]; then
+  ASK_REASONS+=("$DROPPED_COUNT argument(s) could not be read as a package name and were NOT checked against the blocklist.")
+fi
 
 # Popular package names per ecosystem for typosquat distance check.
 # Edit-distance 1–2 against these names => suspicious (ask).

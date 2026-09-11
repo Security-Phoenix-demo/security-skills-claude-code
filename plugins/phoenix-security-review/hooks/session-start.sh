@@ -77,10 +77,32 @@ fi
         fi
         ;;
       python)
-        if [[ -f "$ROOT/pyproject.toml" && ! -f "$ROOT/poetry.lock" && ! -f "$ROOT/uv.lock" && ! -f "$ROOT/Pipfile.lock" ]]; then
-          printf -- '- ⚠️ python: pyproject.toml present but no lockfile (poetry.lock / uv.lock / Pipfile.lock)\n'
+        # "pinned requirements.txt" used to be asserted without opening the file: the
+        # branch only warned when pyproject.toml existed, so a requirements.txt-only
+        # project fell to the else and got a green tick no matter what was in it.
+        if [[ -f "$ROOT/poetry.lock" || -f "$ROOT/uv.lock" || -f "$ROOT/Pipfile.lock" ]]; then
+          printf -- '- â python: lockfile present
+'
+        elif [[ -f "$ROOT/requirements.txt" ]]; then
+          # wc -l, not grep -c: grep -c prints 0 AND exits 1 when it matches nothing, so a
+          # `|| printf 0` fallback appends a second zero and the arithmetic below dies.
+          req_total=$(grep -E -v '^[[:space:]]*(#|$)' "$ROOT/requirements.txt" 2>/dev/null | wc -l | tr -d '[:space:]')
+          req_pinned=$(grep -E -c '==' "$ROOT/requirements.txt" 2>/dev/null | tr -d '[:space:]')
+          [[ -z "$req_total" ]] && req_total=0
+          [[ -z "$req_pinned" ]] && req_pinned=0
+          if [[ "$req_total" -gt 0 && "$req_pinned" -eq "$req_total" ]]; then
+            printf -- '- â python: requirements.txt fully pinned (%s entries)
+' "$req_pinned"
+          else
+            printf -- '- â ï¸ python: no lockfile, and %s of %s requirements.txt entries are unpinned
+'               "$(( req_total - req_pinned ))" "$req_total"
+          fi
+        elif [[ -f "$ROOT/pyproject.toml" ]]; then
+          printf -- '- â ï¸ python: pyproject.toml present but no lockfile (poetry.lock / uv.lock / Pipfile.lock)
+'
         else
-          printf -- '- ✅ python: lockfile present or pinned requirements.txt\n'
+          printf -- '- â ï¸ python: no lockfile and no requirements.txt
+'
         fi
         ;;
       go)
@@ -109,11 +131,31 @@ fi
   # ----- .gitignore basics -----
   printf '### Secrets hygiene (.gitignore)\n\n'
   if [[ -f "$ROOT/.gitignore" ]]; then
+    # grep -F was an unanchored substring match, so `!.env` -- a rule that explicitly
+    # UN-ignores .env -- satisfied the `.env` probe, and `*.keystore` satisfied the
+    # `*.key` probe. Both printed a green tick for a file git will happily commit.
+    # Compare whole rules, and let a later negation win the way git does.
+    gitignore_ignores() {
+      local want="$1" line found=0 neg=0
+      while IFS= read -r line || [[ -n "$line" ]]; do
+        line="$(printf '%s' "$line" | tr -d '
+' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+        [[ -z "$line" ]] && continue
+        case "$line" in
+          '#'*) continue ;;
+          "!$want") found=1; neg=1 ;;
+          "$want"|"/$want") found=1; neg=0 ;;
+        esac
+      done < "$ROOT/.gitignore"
+      [[ "$found" -eq 1 && "$neg" -eq 0 ]]
+    }
     for pat in '.env' '.env.local' '*.pem' '*.key'; do
-      if grep -q -F -- "$pat" "$ROOT/.gitignore"; then
-        printf -- '- ✅ `%s` ignored\n' "$pat"
+      if gitignore_ignores "$pat"; then
+        printf -- '- â `%s` ignored
+' "$pat"
       else
-        printf -- '- ⚠️ `%s` not in .gitignore\n' "$pat"
+        printf -- '- â ï¸ `%s` not in .gitignore
+' "$pat"
       fi
     done
   else
@@ -124,13 +166,27 @@ fi
   # ----- Quick dep audit -----
   printf '### Dependency audit (best-effort, fast)\n\n'
 
+  # `timeout` is GNU coreutils and is absent from stock macOS -- the same platform this
+  # hook's bash-3.2 handling exists to protect. Because the 2>&1 belongs to the simple
+  # command, bash applied it before reporting the missing binary, so "timeout: command
+  # not found" was captured into the fenced block and presented to the model as audit
+  # output, while AUDIT_RAN was set to 1 anyway and suppressed the "no audit tool
+  # installed" guidance. Run the tool unbounded rather than not at all.
+  if have timeout; then
+    run_limited() { timeout "$@"; }
+  elif have gtimeout; then
+    run_limited() { gtimeout "$@"; }
+  else
+    run_limited() { shift; "$@"; }
+  fi
+
   AUDIT_RAN=0
 
   if have osv-scanner; then
     AUDIT_RAN=1
     printf 'Tool: `osv-scanner` (multi-ecosystem)\n\n'
     printf '```\n'
-    timeout 30 osv-scanner -r "$ROOT" --format=table 2>&1 | head -60 || true
+    run_limited 30 osv-scanner -r "$ROOT" --format=table 2>&1 | head -60 || true
     printf '\n```\n\n'
   else
     # Per-ecosystem fallback, capped tight on time
@@ -139,7 +195,7 @@ fi
         nodejs)
           if have npm; then
             printf 'Tool: `npm audit` (nodejs)\n\n```\n'
-            (cd "$ROOT" && timeout 20 npm audit --audit-level=high 2>&1 | head -40) || true
+            (cd "$ROOT" && run_limited 20 npm audit --audit-level=high 2>&1 | head -40) || true
             printf '\n```\n\n'
             AUDIT_RAN=1
           fi
@@ -147,7 +203,7 @@ fi
         python)
           if have pip-audit; then
             printf 'Tool: `pip-audit` (python)\n\n```\n'
-            (cd "$ROOT" && timeout 30 pip-audit 2>&1 | head -40) || true
+            (cd "$ROOT" && run_limited 30 pip-audit 2>&1 | head -40) || true
             printf '\n```\n\n'
             AUDIT_RAN=1
           fi
@@ -155,7 +211,7 @@ fi
         go)
           if have govulncheck; then
             printf 'Tool: `govulncheck` (go)\n\n```\n'
-            (cd "$ROOT" && timeout 30 govulncheck ./... 2>&1 | head -40) || true
+            (cd "$ROOT" && run_limited 30 govulncheck ./... 2>&1 | head -40) || true
             printf '\n```\n\n'
             AUDIT_RAN=1
           fi
@@ -163,7 +219,7 @@ fi
         rust)
           if have cargo-audit; then
             printf 'Tool: `cargo audit` (rust)\n\n```\n'
-            (cd "$ROOT" && timeout 30 cargo audit 2>&1 | head -40) || true
+            (cd "$ROOT" && run_limited 30 cargo audit 2>&1 | head -40) || true
             printf '\n```\n\n'
             AUDIT_RAN=1
           fi
@@ -171,7 +227,7 @@ fi
         ruby)
           if have bundle && bundle help audit >/dev/null 2>&1; then
             printf 'Tool: `bundle audit` (ruby)\n\n```\n'
-            (cd "$ROOT" && timeout 30 bundle audit check --update 2>&1 | head -40) || true
+            (cd "$ROOT" && run_limited 30 bundle audit check --update 2>&1 | head -40) || true
             printf '\n```\n\n'
             AUDIT_RAN=1
           fi

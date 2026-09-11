@@ -114,7 +114,21 @@ async function searchBrave(query, count = 10, since = 90) {
     params,
   });
 
-  return (resp.data.web?.results || []).map((r) => ({
+  // A 200 is not an answer. A TLS-intercepting proxy, a captive portal, an SSO
+  // splash page and a future schema change all return 200 with a body this code
+  // cannot read, and `|| []` turned every one of them into a lookup that
+  // succeeded and found nothing. That is byte-for-byte the brief this file was
+  // just fixed to stop producing, one layer in: searchesSucceeded counted
+  // 'axios did not throw', not 'the provider answered'.
+  const body = resp.data;
+  if (!body || typeof body !== "object" || !("web" in body || "query" in body || "type" in body)) {
+    throw new Error(
+      `Brave returned HTTP ${resp.status} with a body that is not a Brave search response ` +
+        `(${typeof body === "string" ? "non-JSON text, likely a proxy or captive portal" : "JSON without web/query/type"})`
+    );
+  }
+
+  return (body.web?.results || []).map((r) => ({
     title: r.title,
     url: r.url,
     source: new URL(r.url).hostname.replace(/^www\./, ""),
@@ -129,7 +143,17 @@ async function searchSerpApi(query, count = 10) {
   const resp = await axios.get("https://serpapi.com/search", {
     params: { q: query, api_key: apiKey, num: count, engine: "google" },
   });
-  return (resp.data.organic_results || []).map((r) => ({
+  // Same reasoning as the Brave branch above.
+  const body = resp.data;
+  if (!body || typeof body !== "object" ||
+      !("organic_results" in body || "search_metadata" in body || "search_information" in body)) {
+    throw new Error(
+      `SerpAPI returned HTTP ${resp.status} with a body that is not a SerpAPI search response ` +
+        `(${typeof body === "string" ? "non-JSON text, likely a proxy or captive portal" : "JSON without the expected keys"})`
+    );
+  }
+
+  return (body.organic_results || []).map((r) => ({
     title: r.title,
     url: r.link,
     source: new URL(r.link).hostname.replace(/^www\./, ""),
@@ -184,6 +208,13 @@ function classifyFailure(err) {
   ) {
     return { kind: "network-error", detail: `${err.code} reaching the search API — ${firstLine}` };
   }
+  // A 200 carrying something that is not a search response. Worth its own kind:
+  // "unknown" sends the reader to "re-run and see if it reproduces", and this one
+  // reproduces every time until somebody looks at the proxy.
+  if (/is not a (Brave|SerpAPI) search response/.test(firstLine)) {
+    return { kind: "not-a-search-response", detail: firstLine };
+  }
+
   return { kind: "unknown", detail: firstLine };
 }
 
@@ -200,6 +231,10 @@ const REMEDIATION = {
     "this host cannot reach the search API — check connectivity, DNS, and any outbound proxy " +
     "or TLS interception.",
   "api-error": "see the HTTP status above; re-run once the provider is healthy.",
+  "not-a-search-response":
+    "the provider answered with HTTP 200 but the body is not a search result — this is " +
+    "what a TLS-intercepting proxy, a captive portal or an SSO splash page returns. " +
+    "Check outbound proxying from this host, then confirm the API contract has not changed.",
   unknown: "see the message above; re-run with the same arguments to confirm it is reproducible.",
 };
 
@@ -353,7 +388,14 @@ function formatBrief(query, results, tags, opts = {}) {
   if (tags.mitre.length) {
     lines.push(`- Hunt for: ${tags.mitre.slice(0, 5).join(", ")}`);
   }
-  lines.push(`- Full raw results: re-run with \`--json\` flag`);
+  // Say which shape --json returns, because this line used to route a reader from an
+  // INCOMPLETE-marked brief to output that carried no such marking at all.
+  lines.push(
+    `- Full raw results: re-run with \`--json\` flag` +
+      (opts.searchesAttempted && opts.searchesSucceeded !== opts.searchesAttempted
+        ? ` (it returns an object with \`incomplete: true\` and the same census while lookups are failing)`
+        : ``)
+  );
   if (!opts.notebooklm) {
     lines.push(`- Push to NotebookLM: re-run with \`--notebooklm\` flag`);
   }
@@ -627,7 +669,33 @@ async function main() {
 
   // Output
   if (opts.json) {
-    console.log(JSON.stringify(ranked, null, 2));
+    // A complete run prints the bare array it always printed. An INCOMPLETE one must
+    // not: with 5 of 9 lookups failed, stdout was a well-formed array and exit 0, and
+    // nothing in it said that 50 of 90 domains were never queried -- while the brief's
+    // own Next Steps sent the reader here for "full raw results". Total failure
+    // already returns an object for this reason; partial failure now does too, so a
+    // caller that ignores the census fails loudly rather than quietly recording a
+    // short list as the whole answer.
+    if (failures.length > 0) {
+      console.log(
+        JSON.stringify(
+          {
+            incomplete: true,
+            query,
+            searches_attempted: searchesAttempted,
+            searches_succeeded: searchesSucceeded,
+            domains_queried: domainsQueried,
+            domains_enumerated: domainsEnumerated,
+            failures,
+            results: ranked,
+          },
+          null,
+          2
+        )
+      );
+    } else {
+      console.log(JSON.stringify(ranked, null, 2));
+    }
   } else {
     const brief = formatBrief(query, ranked, tags, {
       domainsQueried,

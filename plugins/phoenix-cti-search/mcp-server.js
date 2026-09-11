@@ -184,10 +184,23 @@ rl.on("line", (line) => {
         // every lookup failed, and in that case stdout holds the brief that explains
         // why — so hand over both halves rather than only the exception.
         const exitCode = typeof err.code === "number" ? err.code : null;
+
+        // The census is parsed above and was then ignored right here, so a run that
+        // searched successfully and failed at a step AFTER the search -- index.js
+        // exits 1 when --notebooklm is passed without a notebook id -- was labelled
+        // "Nothing below is a finding", throwing away a brief that was complete.
+        // Telling a model to discard real intelligence is the same class of error as
+        // handing it an empty brief and calling it an all-clear, in the other
+        // direction. Let the census decide which sentence is true.
+        const searched = status && Number(status.succeeded) > 0;
         const parts = [
           exitCode === null
             ? `CTI search could not be run: ${err.message}`
-            : `CTI search FAILED (exit ${exitCode}). Nothing below is a finding.`,
+            : searched
+              ? `CTI search exited ${exitCode} AFTER completing ${status.succeeded} of ` +
+                `${status.attempted} lookups. The brief below is real — the failure was ` +
+                `in a step after the search.`
+              : `CTI search FAILED (exit ${exitCode}). Nothing below is a finding.`,
         ];
         if (out.trim()) parts.push(out.trim());
         if (diagnostic) parts.push(`--- diagnostic (stderr) ---\n${diagnostic}`);

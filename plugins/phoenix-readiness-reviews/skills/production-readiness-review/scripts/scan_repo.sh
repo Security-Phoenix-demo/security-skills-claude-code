@@ -66,6 +66,28 @@ else
   exit 2
 fi
 
+# rg is only the search. Filtering, rejecting and counting all run through awk and
+# grep whichever engine searched, but those were checked only as a fallback FOR rg.
+# On a host with rg and no grep every section printed "- <empty> hit(s)" then _none_
+# and exited 0; with no awk, twenty sections of 0 hits and not even that tell.
+for _tool in awk grep; do
+  command -v "$_tool" >/dev/null 2>&1 || {
+    echo "FATAL: $_tool is required - filtering and counting use it on both engines. Nothing was scanned." >&2
+    exit 2
+  }
+done
+
+# A malformed --exclude made awk die on every emit, and the report came out as twenty
+# perfectly-formed "0 hit(s) / _none_" sections with exit 0. README documents
+# `--exclude 'generated/'`, and SKILL.md documents redirecting stdout to a file, so a
+# single typo produced a clean-looking artefact for a model to review. Check it once.
+for _re_name in "$EXCLUDE_RE" "$TEST_RE"; do
+  if ! echo x | awk -v re="$_re_name" '$0 ~ re { }' >/dev/null 2>&1; then
+    echo "FATAL: not a valid regex for awk: $_re_name" >&2
+    exit 2
+  fi
+done
+
 # filter <exclude-tests:yes|no>
 filter() {
   local drop_tests="${1:-no}"
@@ -91,8 +113,29 @@ emit() {  # emit <title> <regex> <drop_tests> <cap> [ci] [reject_re]
       "$ENGINE" "$rc" "$re" "$(cat "$SEARCH_ERR" 2>/dev/null)"
     return 0
   fi
-  out="$(printf '%s\n' "$out" | filter "$dt")"
-  [[ -n "$reject" ]] && out="$(printf '%s\n' "$out" | grep -Ev "$reject" || true)"
+  out="$(printf '%s\n' "$out" | filter "$dt")"; rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    SEARCH_FAILURES=$((SEARCH_FAILURES + 1))
+    printf '\n### %s - FILTER FAILED\n' "$title"
+    printf '\n**This check examined NOTHING. It is unscanned, not clean.**\n'
+    printf '\n```\nawk exit: %s\nexclude:  %s\n```\n' "$rc" "$EXCLUDE_RE"
+    return 0
+  fi
+
+  # `|| true` here swallowed grep's exit 2, so a malformed reject pattern emptied the
+  # section and printed _none_ -- the fail-open reappearing inside the mechanism that
+  # was added to stop it. grep -v exits 1 when it drops every line, which is a real
+  # empty result; only 2 and above is a broken pattern.
+  if [[ -n "$reject" ]]; then
+    out="$(printf '%s\n' "$out" | grep -Ev "$reject")"; rc=$?
+    if [[ "$rc" -ge 2 ]]; then
+      SEARCH_FAILURES=$((SEARCH_FAILURES + 1))
+      printf '\n### %s - REJECT PATTERN FAILED\n' "$title"
+      printf '\n**This check examined NOTHING. It is unscanned, not clean.**\n'
+      printf '\n```\ngrep exit: %s\nreject:    %s\n```\n' "$rc" "$reject"
+      return 0
+    fi
+  fi
   n="$(printf '%s' "$out" | grep -c . || true)"
   printf '\n### %s — %s hit(s)\n' "$title" "$n"
   [[ "$n" -eq 0 ]] && { printf '\n_none_\n'; return; }

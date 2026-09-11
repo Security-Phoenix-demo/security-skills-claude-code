@@ -1,0 +1,41 @@
+# Dependency updates for the two plugins that ship real dependencies.
+#
+# Paths matter here: the restructure moved every manifest, which is why the earlier
+# Dependabot PR (#1) targeted skills/notebooklm/requirements.txt — a path that no longer
+# exists. If a plugin moves again, update the directories below in the same commit.
+
+version: 2
+
+updates:
+  # Node — the CTI search CLI and MCP server.
+  - package-ecosystem: npm
+    directory: /plugins/phoenix-cti-search
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(cti-search)"
+    groups:
+      npm-minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Python — the NotebookLM skill's browser automation.
+  - package-ecosystem: pip
+    directory: /plugins/phoenix-docs-research/skills/notebooklm
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(notebooklm)"
+
+  # Keep the CI actions current — a stale checkout or setup-python action is its own
+  # supply-chain surface.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "deps(actions)"

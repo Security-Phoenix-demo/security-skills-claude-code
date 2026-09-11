@@ -38,6 +38,10 @@ if [[ $FRESH -eq 0 && -f "$CACHE_FILE" ]]; then
   fi
 fi
 
+# shellcheck disable=SC2207
+# SC2207 suggests mapfile. mapfile is bash 4+, and this hook has to keep working on
+# the bash 3.2 that macOS still ships. Word splitting is safe here: detect_ecosystems
+# prints one short, fixed identifier per line (nodejs, python, go, ...) — never a path.
 ECOSYSTEMS=($(detect_ecosystems))
 if [[ ${#ECOSYSTEMS[@]-0} -eq 0 ]]; then
   log "no recognised ecosystem manifests; skipping deep audit"

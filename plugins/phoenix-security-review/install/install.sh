@@ -60,6 +60,9 @@ BACKUP="$SETTINGS.before-security-suite.bak"
 FRESH_MARKER="$SETTINGS.created-by-security-suite"
 
 say()  { echo "[security-suite] $*"; }
+# Callers pass a single pre-quoted command string so --dry-run can print exactly what
+# would run. That is what eval is for here.
+# shellcheck disable=SC2294
 do_or_show() {
   if [[ "$DRY" == 1 ]]; then echo "  would: $*"
   else eval "$@"; fi

@@ -210,7 +210,7 @@ A skill needs no installer. It is distributed by the plugin it lives in. What it
 frontmatter that parses:
 
 ```bash
-claude plugin validate --strict plugins/phoenix-security-review/skills
+claude plugin validate --strict plugins/phoenix-security-review
 ```
 
 `--strict` fails on unrecognised fields and missing metadata. Fix everything it reports
@@ -253,9 +253,12 @@ Three places, all in the repository root `README.md`:
 
 If the skill changes what the plugin does, update the `description` in
 `plugins/<plugin>/.claude-plugin/plugin.json` **and** the matching entry in
-`.claude-plugin/marketplace.json`. Those two descriptions are what users read before they
-install, and `claude plugin tag` will fail if a plugin manifest and its marketplace entry
-disagree.
+`.claude-plugin/marketplace.json`. Users read the marketplace text before installing and
+the manifest text in `claude plugin details` afterwards, so drift between the two misleads
+them. `scripts/validate-marketplace.py` warns when they diverge.
+
+`claude plugin tag` checks that the plugin manifest and its marketplace entry agree on
+**name and version** — not description — so a version bump must land in both.
 
 ## Adding a New Plugin
 
@@ -635,13 +638,29 @@ Every contribution must include:
 
 Test against a local marketplace. Edits land immediately, so this is the loop for real work.
 
-### 1. Validate the manifests and the frontmatter
+### 1. Validate
+
+Two validators, because they cover different ground. CI runs both, so run both:
 
 ```bash
+python3 scripts/validate-marketplace.py                  # does everything fit together?
 claude plugin validate .                                 # the marketplace manifest
 claude plugin validate plugins/your-plugin-name          # the plugin manifest
-claude plugin validate --strict plugins/*/skills         # every skill's frontmatter
+claude plugin validate --strict plugins/your-plugin-name # its skills, commands and agents
 ```
+
+`claude plugin validate` checks schema and frontmatter *shape*. It does not check that
+the pieces agree — verified against the real CLI, all four of these **pass** it:
+
+| Broken thing | `claude plugin validate` | `validate-marketplace.py` |
+|---|---|---|
+| marketplace `source` → a directory that does not exist | passes | **fails** |
+| two skills sharing one slash name | passes | **fails** |
+| `name:` disagreeing with the skill's directory | passes | **fails** |
+| a `SKILL.md` citing a `references/` file that is not there | passes | **fails** |
+
+That is not a criticism of the CLI — schema is its job. It is why the second script
+exists, and every bug that has actually broken this repository lived in that gap.
 
 ### 2. Install from your checkout
 
@@ -685,8 +704,10 @@ hard-coded path — replace it with `${CLAUDE_SKILL_DIR}`.
 
 ### Testing Checklist
 
+- [ ] `python3 scripts/validate-marketplace.py` passes with no errors
 - [ ] `claude plugin validate .` passes
-- [ ] `claude plugin validate --strict plugins/*/skills` passes
+- [ ] `claude plugin validate --strict plugins/<plugin>` passes
+- [ ] CI is green on the PR
 - [ ] `claude plugin details <plugin>` lists every component you added
 - [ ] No slash-name clash with any other plugin in this repository
 - [ ] The skill fires from its description, not only from the explicit command

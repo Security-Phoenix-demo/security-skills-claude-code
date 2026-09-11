@@ -176,14 +176,23 @@ echo "no JSON parser is declared, not hidden"
 # get_json_field called python3 by name and swallowed its stderr, so on a host without
 # a working one CMD came back empty, that read as "not an install", and every install
 # of every blocklisted package was approved in silence.
-NOPARSE="$(PATH=/usr/bin:/bin "$PY3" -c 'import json,sys;print(json.dumps({"tool_input":{"command":"npm install event-stream"}}))' 2>/dev/null   | PATH=/usr/bin:/bin bash "$HOOK" 2>/dev/null)"
+# Shadowing the interpreters, not trimming PATH: `PATH=/usr/bin:/bin` removes python3
+# on Windows and keeps it on ubuntu, so this case passed locally and failed in CI
+# while the hook was behaving correctly both times. Stubs that exist and exit non-zero
+# are exactly what py_interp() probes for, and they mean the same thing on every host.
+NOPARSE_DIR="$(mktemp -d)"
+for _shadow in python3 python py jq; do
+  printf '#!/bin/sh\nexit 1\n' > "$NOPARSE_DIR/$_shadow"
+  chmod +x "$NOPARSE_DIR/$_shadow"
+done
+NOPARSE="$("$PY3" -c 'import json;print(json.dumps({"tool_input":{"command":"npm install event-stream"}}))' 2>/dev/null \
+  | PATH="$NOPARSE_DIR:$PATH" bash "$HOOK" 2>/dev/null)"
+rm -rf "$NOPARSE_DIR"
 case "$NOPARSE" in
   *permissionDecisionReason*python3*jq*)
-    printf '  ok    %-5s  %s
-' "says" "a missing parser is reported, not silent" ;;
+    printf '  ok    %-5s  %s\n' "says" "a missing parser is reported, not silent" ;;
   *)
-    printf '  FAIL  no reason given when no JSON parser exists -- %s
-' "${NOPARSE:-<empty>}"
+    printf '  FAIL  no reason given when no JSON parser exists -- %s\n' "${NOPARSE:-<empty>}"
     FAILURES=$((FAILURES + 1)) ;;
 esac
 

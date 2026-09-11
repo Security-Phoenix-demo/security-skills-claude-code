@@ -68,14 +68,21 @@ py_interp() {
 # tool input MUST check this and say so when it is false, rather than treating an
 # unparsed payload as an empty one. An empty payload reads as "nothing to check",
 # which is how a guard comes to approve an install it never looked at.
-json_parser_available() { py_interp >/dev/null || have jq; }
+# jq is probed by RUNNING it, for the same reason py_interp is. Checking `have jq`
+# alone repeated the exact error this file was changed to remove: a jq on PATH that
+# cannot run satisfied the check, get_json_field then fell to the jq branch, jq
+# failed, the field came back empty, and the caller read that as "no command" and
+# allowed. Existence is not function; that distinction is the whole point here.
+jq_works() { have jq && printf '{}' | jq -e . >/dev/null 2>&1; }
+
+json_parser_available() { py_interp >/dev/null || jq_works; }
 
 # JSON-encode a string for safe inclusion in JSON output.
 jsonenc() {
   local py
   if py="$(py_interp)"; then
     "$py" -c 'import json,sys; print(json.dumps(sys.stdin.read()), end="")'
-  elif have jq; then
+  elif jq_works; then
     jq -Rs .
   else
     # Last-resort encoder. The previous version ran its s/// commands in sed's first
@@ -145,7 +152,7 @@ try:
 except Exception:
     pass
 " "$input" "$path" 2>/dev/null
-  elif have jq; then
+  elif jq_works; then
     # Dotted path only, matching the python branch. // empty keeps a missing key
     # printing nothing rather than the string "null".
     printf '%s' "$input" | jq -r --arg p "$path" 'getpath($p | split(".")) // empty' 2>/dev/null

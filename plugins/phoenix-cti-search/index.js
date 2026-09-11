@@ -144,6 +144,88 @@ async function executeSearch(query, count, since) {
   return searchBrave(query, count, since);
 }
 
+// ─── Failure Accounting ──────────────────────────────────────────────────────
+
+/**
+ * Why did a lookup fail? The distinction is the whole value of the message.
+ *
+ * "Search failed" tells the reader nothing they can act on. A missing key is a
+ * thirty-second fix by whoever ran this; a 401 means a key is present but wrong,
+ * which is a different thirty seconds; a DNS failure may be the corporate proxy and
+ * is worth a retry; a 429 means slow down. Collapsing all four into one sentence is
+ * how an operator ends up re-running the same broken command four times.
+ */
+function classifyFailure(err) {
+  const msg = err && err.message ? String(err.message) : String(err);
+  const firstLine = msg.split("\n")[0];
+  const status = err && err.response ? err.response.status : undefined;
+
+  if (/_KEY not set/i.test(msg)) {
+    return { kind: "missing-credentials", detail: firstLine };
+  }
+  if (status === 401 || status === 403) {
+    return {
+      kind: "rejected-credentials",
+      detail: `search API returned HTTP ${status} — a key was sent and refused`,
+    };
+  }
+  if (status === 429) {
+    return { kind: "rate-limited", detail: "search API returned HTTP 429 — rate limited" };
+  }
+  if (status) {
+    return { kind: "api-error", detail: `search API returned HTTP ${status}` };
+  }
+  if (
+    err &&
+    typeof err.code === "string" &&
+    /^(ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ECONNRESET|ECONNABORTED|EHOSTUNREACH|ENETUNREACH|CERT_|UNABLE_TO_)/.test(
+      err.code
+    )
+  ) {
+    return { kind: "network-error", detail: `${err.code} reaching the search API — ${firstLine}` };
+  }
+  return { kind: "unknown", detail: firstLine };
+}
+
+const REMEDIATION = {
+  "missing-credentials":
+    "set BRAVE_SEARCH_API_KEY (or SEARCH_PROVIDER=serpapi with SERPAPI_KEY) in the plugin's .env, " +
+    "or in the env block of the MCP server entry that launches this. See .env.example.",
+  "rejected-credentials":
+    "the key is present but the provider refused it — check it has not expired and that the " +
+    "subscription is active.",
+  "rate-limited":
+    "wait, then re-run with a lower --count or a single --tier so that fewer calls are made.",
+  "network-error":
+    "this host cannot reach the search API — check connectivity, DNS, and any outbound proxy " +
+    "or TLS interception.",
+  "api-error": "see the HTTP status above; re-run once the provider is healthy.",
+  unknown: "see the message above; re-run with the same arguments to confirm it is reproducible.",
+};
+
+/**
+ * One-line tally, e.g. "missing-credentials ×9".
+ */
+function summariseFailures(failures) {
+  const counts = new Map();
+  for (const f of failures) counts.set(f.kind, (counts.get(f.kind) || 0) + 1);
+  return [...counts.entries()].map(([kind, n]) => `${kind} ×${n}`).join(", ");
+}
+
+/**
+ * A machine-readable census of what actually happened, written to stderr on EVERY
+ * run — success, partial, total failure and dry run alike.
+ *
+ * It is always emitted because its ABSENCE has to mean something. mcp-server.js
+ * treats a missing status line as "this run cannot be vouched for" rather than as
+ * success, and that only works if a healthy run is guaranteed to print one.
+ */
+const STATUS_PREFIX = "CTI-SEARCH-STATUS ";
+
+function emitStatus(status) {
+  console.error(STATUS_PREFIX + JSON.stringify(status));
+}
+
 // ─── Result Processing ───────────────────────────────────────────────────────
 
 /**
@@ -189,7 +271,20 @@ function formatBrief(query, results, tags, opts = {}) {
   const lines = [];
 
   lines.push(`## CTI Brief: ${query} — ${date}`);
-  lines.push(`> Sources searched: ${opts.domainsSearched || 0} domains across ${opts.tiersUsed?.join(", ") || "all"} tiers`);
+  // opts.domainsQueried counts only domains that sat inside a lookup which RETURNED.
+  // The old code passed the ENUMERATED count here, so a run in which every lookup
+  // threw still announced "90 domains searched" — the most load-bearing sentence in
+  // the brief was the one furthest from the truth.
+  lines.push(`> Sources searched: ${opts.domainsQueried || 0} domains across ${opts.tiersUsed?.join(", ") || "all"} tiers`);
+  const failures = opts.failures || [];
+  if (failures.length > 0) {
+    const missed = (opts.domainsEnumerated || 0) - (opts.domainsQueried || 0);
+    lines.push(
+      `> **INCOMPLETE: ${failures.length} of ${opts.searchesAttempted || 0} lookups failed** ` +
+      `(${summariseFailures(failures)}). ${missed} domain${missed === 1 ? " was" : "s were"} ` +
+      `never queried — an absence below is not evidence of absence.`
+    );
+  }
   lines.push("");
 
   // Key findings (top 5 summarised)
@@ -221,8 +316,37 @@ function formatBrief(query, results, tags, opts = {}) {
   if (tags.ips.length) lines.push(`**IPs observed in snippets:** ${tags.ips.join(", ")}`);
   lines.push("");
 
+  // Coverage gaps — printed before Next Steps so that a reader skimming upward from
+  // the recommendations hits the caveat before they act on partial data.
+  if (failures.length > 0) {
+    lines.push("### Coverage Gaps");
+    const byKind = new Map();
+    for (const f of failures) {
+      if (!byKind.has(f.kind)) {
+        byKind.set(f.kind, { count: 0, detail: f.detail, tiers: new Set() });
+      }
+      const entry = byKind.get(f.kind);
+      entry.count += 1;
+      entry.tiers.add(f.tier);
+    }
+    for (const [kind, info] of byKind) {
+      lines.push(
+        `- **${kind}** — ${info.count} lookup${info.count === 1 ? "" : "s"} ` +
+        `(tier${info.tiers.size === 1 ? "" : "s"} ${[...info.tiers].join(", ")}): ${info.detail}`
+      );
+      lines.push(`  - Fix: ${REMEDIATION[kind] || REMEDIATION.unknown}`);
+    }
+    lines.push("");
+  }
+
   // Next steps
   lines.push("### Next Steps");
+  if (failures.length > 0) {
+    lines.push(
+      `- **Re-run once the gaps above are fixed.** This brief saw ${opts.domainsQueried || 0} of ` +
+      `${opts.domainsEnumerated || 0} sources; it is not a full sweep.`
+    );
+  }
   if (tags.cves.length) {
     lines.push(`- Patch check: ${tags.cves.slice(0, 3).join(", ")}`);
   }
@@ -233,6 +357,60 @@ function formatBrief(query, results, tags, opts = {}) {
   if (!opts.notebooklm) {
     lines.push(`- Push to NotebookLM: re-run with \`--notebooklm\` flag`);
   }
+
+  return lines.join("\n");
+}
+
+/**
+ * The brief for a run in which every lookup failed.
+ *
+ * It keeps the "## CTI Brief" heading because whatever reads this is looking for that
+ * shape, but every line under it says the same thing: nothing was searched, so there
+ * are no findings and no absences either. A CTI consumer that cannot distinguish
+ * "nobody has published on this actor" from "we asked nobody" will draw exactly the
+ * wrong conclusion from a clean empty page — and a clean empty page, with exit 0 and a
+ * claim that 90 domains had been searched, is what this used to print.
+ */
+function formatFailureReport(query, opts) {
+  const date = new Date().toISOString().split("T")[0];
+  const lines = [];
+
+  lines.push(`## CTI Brief: ${query} — ${date}`);
+  lines.push("> **SEARCH FAILED — no intelligence was gathered.**");
+  lines.push(
+    `> 0 of ${opts.searchesAttempted} lookups succeeded, so 0 of ${opts.domainsEnumerated} ` +
+    `enumerated domains were actually queried.`
+  );
+  lines.push(
+    "> There are no findings below because there was no search — not because there is nothing to find."
+  );
+  lines.push("");
+
+  lines.push("### Why every lookup failed");
+  const byKind = new Map();
+  for (const f of opts.failures) {
+    if (!byKind.has(f.kind)) byKind.set(f.kind, { count: 0, detail: f.detail });
+    byKind.get(f.kind).count += 1;
+  }
+  if (byKind.size === 0) {
+    // Zero attempts is its own bug and must not be reported as zero results: it means
+    // no domain batch was constructed at all, which points at the data files rather
+    // than at the search provider.
+    lines.push(
+      `- **no-lookups-attempted** — not one search was constructed for ` +
+      `tier${opts.tiersUsed.length === 1 ? "" : "s"} ${opts.tiersUsed.join(", ")}. ` +
+      `Check that data/tier-map.json and data/domains.txt exist and are non-empty.`
+    );
+  } else {
+    for (const [kind, info] of byKind) {
+      lines.push(`- **${kind}** — ${info.count} lookup${info.count === 1 ? "" : "s"}: ${info.detail}`);
+      lines.push(`  - Fix: ${REMEDIATION[kind] || REMEDIATION.unknown}`);
+    }
+  }
+  lines.push("");
+
+  lines.push("### Next Steps");
+  lines.push('- Fix the cause above and re-run. Do not record this query as "no results found".');
 
   return lines.join("\n");
 }
@@ -322,13 +500,22 @@ async function main() {
     console.error(`   Tiers: ${tiers.join(", ")} | Count: ${count} | Since: ${since}d\n`);
   }
 
-  // Build per-tier searches
+  // Build per-tier searches.
+  //
+  // Two counts, deliberately kept apart, because conflating them is the defect this
+  // accounting exists to prevent: domainsEnumerated is how many domains we LISTED,
+  // domainsQueried is how many sat inside a lookup that actually came back. Only the
+  // second one is a fact about the world; the first is a fact about our data files.
   const allResults = [];
-  let totalDomains = 0;
+  const failures = [];
+  let domainsEnumerated = 0;
+  let domainsQueried = 0;
+  let searchesAttempted = 0;
+  let searchesSucceeded = 0;
 
   for (const tier of tiers) {
     const domains = getDomainsForTier(tier);
-    totalDomains += domains.length;
+    domainsEnumerated += domains.length;
 
     // Batch domains into groups of 10 (site: query length limit)
     const batches = [];
@@ -344,18 +531,95 @@ async function main() {
         continue;
       }
 
+      searchesAttempted += 1;
       try {
         const results = await executeSearch(q, count, since);
+        searchesSucceeded += 1;
+        domainsQueried += batch.length;
         allResults.push(...results);
       } catch (err) {
-        console.error(`  ✗ Tier ${tier} search failed: ${err.message}`);
+        const failure = classifyFailure(err);
+        failures.push({ tier, kind: failure.kind, detail: failure.detail });
+        console.error(`  ✗ Tier ${tier} lookup failed [${failure.kind}]: ${failure.detail}`);
       }
     }
   }
 
   if (opts.dryRun) {
-    console.log(`\nDry run complete. Would search ${totalDomains} domains.`);
+    console.log(`\nDry run complete. Would search ${domainsEnumerated} domains.`);
+    emitStatus({
+      dry_run: true,
+      attempted: 0,
+      succeeded: 0,
+      failed: 0,
+      domains_queried: 0,
+      domains_enumerated: domainsEnumerated,
+      tiers,
+    });
     process.exit(0);
+  }
+
+  emitStatus({
+    dry_run: false,
+    attempted: searchesAttempted,
+    succeeded: searchesSucceeded,
+    failed: failures.length,
+    domains_queried: domainsQueried,
+    domains_enumerated: domainsEnumerated,
+    tiers,
+    failure_kinds: failures.reduce((acc, f) => {
+      acc[f.kind] = (acc[f.kind] || 0) + 1;
+      return acc;
+    }, {}),
+  });
+
+  // Nothing came back from anywhere. That is a failed run, not an empty result set.
+  //
+  // The old code fell through to formatBrief() here and printed a confident, empty
+  // brief with exit 0. For a CTI tool that is the worst possible output: the reader
+  // cannot tell "no source has published on this" from "we asked no source", and the
+  // two lead to opposite decisions. So: say why, on stdout where the brief goes, and
+  // exit non-zero. 2 rather than 1, because 1 is this script's generic fatal.
+  if (searchesSucceeded === 0) {
+    const report = formatFailureReport(query, {
+      searchesAttempted,
+      domainsEnumerated,
+      failures,
+      tiersUsed: tiers,
+    });
+
+    if (opts.json) {
+      // The happy path's shape is an array, and it is held on the happy path only.
+      // Here there is nothing to hold: printing [] with exit 0 is exactly the lie
+      // being removed, and an object makes a caller that ignores the exit code fail
+      // loudly (undefined.length) rather than quietly record "0 results".
+      console.log(
+        JSON.stringify(
+          {
+            error: "all-lookups-failed",
+            query,
+            searches_attempted: searchesAttempted,
+            searches_succeeded: 0,
+            domains_queried: 0,
+            domains_enumerated: domainsEnumerated,
+            failures,
+          },
+          null,
+          2
+        )
+      );
+    } else {
+      console.log(report);
+    }
+
+    // The report is NOT echoed to stderr. The per-lookup lines above and the status
+    // line already record the failure there, and anything reading both streams —
+    // mcp-server.js does — would otherwise show the same page twice.
+    //
+    // exitCode rather than exit(), so the stdout write above is flushed when stdout
+    // is a pipe, which it always is under the MCP server.
+    process.exitCode = 2;
+    return;
   }
 
   const ranked = rankResults(allResults).slice(0, count * 2);
@@ -366,7 +630,11 @@ async function main() {
     console.log(JSON.stringify(ranked, null, 2));
   } else {
     const brief = formatBrief(query, ranked, tags, {
-      domainsSearched: totalDomains,
+      domainsQueried,
+      domainsEnumerated,
+      searchesAttempted,
+      searchesSucceeded,
+      failures,
       tiersUsed: tiers,
       notebooklm: opts.notebooklm,
     });

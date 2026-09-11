@@ -158,14 +158,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # `-name '.env'` matched that exact name and nothing else, so .env.production,
+      # .env.local and .env.staging -- the files Next.js, Vite and CRA actually cause
+      # people to commit -- walked straight past it, and the scanner below then missed
+      # their contents too. Match the family; exempt only what is a template by name.
       - name: A real .env must never be committed
         run: |
-          if find . -path ./.git -prune -o -name '.env' -type f -print | grep -q .; then
-            echo "::error::a committed .env was found — ship .env.example instead"
-            find . -path ./.git -prune -o -name '.env' -type f -print
+          found="$(find . -path ./.git -prune -o -type f -name '.env*' -print | grep -v -E '[.](example|template|sample|dist)$|[.]envrc$' || true)"
+          if [ -n "$found" ]; then
+            echo "::error::a committed .env file was found - ship .env.example instead"
+            echo "$found"
             exit 1
           fi
-          echo "no .env files"
+          echo "no committed .env files"
 
       # The scanner used to live inline here, where it could not be run without pushing
       # and could not be tested at all. Four bypasses shipped that way: quoting was

@@ -56,13 +56,34 @@ def warn(where: str, msg: str) -> None:
 
 
 def read_json(path: Path, where: str):
+    """The parsed object, or None having already recorded why.
+
+    This used to return None for three different outcomes: file missing, parse error,
+    and a document that legitimately parses to Python None -- JSON `null`. The first
+    two recorded an error; the third recorded nothing, and every caller guards with
+    `if x is not None`, so a plugin.json containing `null` skipped the whole manifest
+    block and the validator printed OK. That is this repository's recurring defect
+    verbatim: the gate reports success having checked nothing.
+
+    Every one of these files must be a JSON object, so anything else is an error with
+    a name, not a silent None.
+    """
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         err(where, "file is missing")
+        return None
     except json.JSONDecodeError as e:
         err(where, f"invalid JSON — {e}")
-    return None
+        return None
+    except OSError as e:
+        err(where, f"could not be read — {e}")
+        return None
+    if not isinstance(data, dict):
+        kind = "null" if data is None else type(data).__name__
+        err(where, f"must be a JSON object, not {kind}")
+        return None
+    return data
 
 
 def frontmatter(path: Path) -> tuple[dict[str, str], str] | None:
@@ -134,7 +155,17 @@ def main() -> int:
             if field not in mkt:
                 err("marketplace.json", f"missing required field `{field}`")
 
-        for entry in mkt.get("plugins", []):
+        entries = mkt.get("plugins", [])
+        if not isinstance(entries, list):
+            err("marketplace.json", f"`plugins` must be a list, not {type(entries).__name__}")
+            entries = []
+
+        for entry in entries:
+            # A malformed entry used to reach .get() and raise AttributeError, so the
+            # run ended in a traceback instead of a diagnostic a maintainer can act on.
+            if not isinstance(entry, dict):
+                err("marketplace.json", f"a `plugins` entry is {type(entry).__name__}, not an object")
+                continue
             name = entry.get("name", "")
             where = f"marketplace.json[{name or '?'}]"
             if not name:
@@ -150,6 +181,12 @@ def main() -> int:
             src = entry.get("source", "")
             if not src:
                 err(where, "no `source`")
+                continue
+            if not isinstance(src, str):
+                # The marketplace schema also allows an object source for github/git
+                # entries. This validator only understands a path, and (root / dict)
+                # raised TypeError rather than saying so.
+                err(where, f"`source` is {type(src).__name__}; only a directory path is validated here")
                 continue
             src_dir = (root / src).resolve()
             if not src_dir.is_dir():

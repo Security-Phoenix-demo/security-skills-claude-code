@@ -56,13 +56,34 @@ def warn(where: str, msg: str) -> None:
 
 
 def read_json(path: Path, where: str):
+    """The parsed object, or None having already recorded why.
+
+    This used to return None for three different outcomes: file missing, parse error,
+    and a document that legitimately parses to Python None -- JSON `null`. The first
+    two recorded an error; the third recorded nothing, and every caller guards with
+    `if x is not None`, so a plugin.json containing `null` skipped the whole manifest
+    block and the validator printed OK. That is this repository's recurring defect
+    verbatim: the gate reports success having checked nothing.
+
+    Every one of these files must be a JSON object, so anything else is an error with
+    a name, not a silent None.
+    """
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         err(where, "file is missing")
+        return None
     except json.JSONDecodeError as e:
         err(where, f"invalid JSON — {e}")
-    return None
+        return None
+    except OSError as e:
+        err(where, f"could not be read — {e}")
+        return None
+    if not isinstance(data, dict):
+        kind = "null" if data is None else type(data).__name__
+        err(where, f"must be a JSON object, not {kind}")
+        return None
+    return data
 
 
 def frontmatter(path: Path) -> tuple[dict[str, str], str] | None:
@@ -134,7 +155,17 @@ def main() -> int:
             if field not in mkt:
                 err("marketplace.json", f"missing required field `{field}`")
 
-        for entry in mkt.get("plugins", []):
+        entries = mkt.get("plugins", [])
+        if not isinstance(entries, list):
+            err("marketplace.json", f"`plugins` must be a list, not {type(entries).__name__}")
+            entries = []
+
+        for entry in entries:
+            # A malformed entry used to reach .get() and raise AttributeError, so the
+            # run ended in a traceback instead of a diagnostic a maintainer can act on.
+            if not isinstance(entry, dict):
+                err("marketplace.json", f"a `plugins` entry is {type(entry).__name__}, not an object")
+                continue
             name = entry.get("name", "")
             where = f"marketplace.json[{name or '?'}]"
             if not name:
@@ -151,12 +182,27 @@ def main() -> int:
             if not src:
                 err(where, "no `source`")
                 continue
+            if not isinstance(src, str):
+                # The marketplace schema also allows an object source for github/git
+                # entries. This validator only understands a path, and (root / dict)
+                # raised TypeError rather than saying so.
+                err(where, f"`source` is {type(src).__name__}; only a directory path is validated here")
+                continue
             src_dir = (root / src).resolve()
             if not src_dir.is_dir():
                 # claude plugin validate does NOT catch this.
                 err(where, f"`source` points at `{src}`, which is not a directory")
             elif not (src_dir / ".claude-plugin" / "plugin.json").is_file():
                 err(where, f"`{src}` has no .claude-plugin/plugin.json, so it is not a plugin")
+            elif src_dir != (root / "plugins" / name).resolve():
+                # Swapping two entries' `source` values passes every other check in this
+                # file: both directories exist, both hold a manifest, and the listed set
+                # still matches the on-disk set. Installing one plugin loads the other.
+                err(
+                    where,
+                    f"`source` is `{src}` but the entry is named `{name}` — it must point "
+                    f"at `plugins/{name}`, or installing this entry loads a different plugin",
+                )
 
     # ---------------------------------------------------------------- plugins
     plugins_dir = root / "plugins"
@@ -175,13 +221,19 @@ def main() -> int:
     # slash names must be unique across every plugin, not just within one
     slash: dict[str, list[str]] = {}
 
+    # Agents are dispatched by subagent_type, not by a slash name, so an agent may
+    # legitimately share a name with the skill it backs — security-reviewer is both,
+    # deliberately. Two *agents* sharing one name is the real collision, and it needs
+    # its own namespace to be visible at all.
+    agent_names: dict[str, list[str]] = {}
+
     for pdir in on_disk:
         pname = pdir.name
         man_path = pdir / ".claude-plugin" / "plugin.json"
         man = read_json(man_path, f"plugins/{pname}/.claude-plugin/plugin.json")
 
         if man is not None:
-            where = f"plugins/{pname}/plugin.json"
+            where = f"plugins/{pname}/.claude-plugin/plugin.json"
             if man.get("name") != pname:
                 err(where, f"`name: {man.get('name')}` does not match the directory `{pname}`")
             if not man.get("description"):
@@ -276,8 +328,12 @@ def main() -> int:
             fm = frontmatter(agent)
             if fm is None:
                 err(rel, "no --- fenced YAML frontmatter")
-            elif not fm[0].get("description"):
-                err(rel, "`description` is empty")
+                aname = agent.stem
+            else:
+                if not fm[0].get("description"):
+                    err(rel, "`description` is empty")
+                aname = fm[0].get("name") or agent.stem
+            agent_names.setdefault(aname, []).append(rel)
 
     # ---------------------------------------------------------------- clashes
     for name, owners in sorted(slash.items()):
@@ -286,6 +342,14 @@ def main() -> int:
                 f"slash name /{name}",
                 "claimed by " + ", ".join(owners)
                 + " — two components cannot share a slash name",
+            )
+
+    for name, owners in sorted(agent_names.items()):
+        if len(owners) > 1:
+            err(
+                f"agent `{name}`",
+                "defined by " + ", ".join(owners)
+                + " — subagent_type would be ambiguous and the last plugin loaded wins",
             )
 
     # ---------------------------------------------------------------- scripts
@@ -301,8 +365,15 @@ def main() -> int:
     for junk in sorted(root.rglob(".DS_Store")):
         if ".git/" not in str(junk):
             err(str(junk.relative_to(root)), "committed .DS_Store")
-    for env in sorted(root.glob("plugins/**/.env")):
-        err(str(env.relative_to(root)), "a real .env must never be committed — ship .env.example")
+    # A force-added .env at the repo root, under scripts/, or in any other tracked
+    # directory is the same leak. Globbing plugins/ only made this a false clean.
+    found_env = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in (".git", "node_modules", ".venv")]
+        if ".env" in filenames:
+            found_env.append((Path(dirpath) / ".env").relative_to(root).as_posix())
+    for rel_env in sorted(found_env):
+        err(rel_env, "a real .env must never be committed — ship .env.example")
 
     # ---------------------------------------------------------------- doc links
     for md in sorted(list(root.glob("*.md")) + list(root.glob("plugins/*/README.md"))):

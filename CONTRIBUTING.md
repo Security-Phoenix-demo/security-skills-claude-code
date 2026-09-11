@@ -685,8 +685,15 @@ what your `description` adds to **every** session, so keep it tight.
 
 ### 4. Check for name clashes
 
-Two components cannot share a slash name. Compare the inventory against the other five
-plugins before you commit. A command that wraps a skill must not reuse the skill's name.
+Skills and commands share one slash namespace across every plugin, so two of them cannot
+share a name. Compare the inventory against the other five plugins before you commit. A
+command that wraps a skill must not reuse the skill's name.
+
+Agents are the exception, and it is worth being precise about why: an agent is dispatched by
+`subagent_type`, never by a slash name, so an agent may deliberately carry the name of the
+skill it backs — `security-reviewer` is both, and that is intended. Two *agents* sharing one
+name is the real clash, because the dispatch is then ambiguous and whichever plugin loaded
+last wins. `scripts/validate-marketplace.py` enforces both rules in their own namespaces.
 
 ### 5. Exercise it for real
 

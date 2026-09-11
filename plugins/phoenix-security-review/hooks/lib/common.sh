@@ -38,17 +38,72 @@ detect_ecosystems() {
 # Tool availability
 have() { command -v "$1" >/dev/null 2>&1; }
 
+# A WORKING python, resolved once. Probing with have() is not enough and that is the
+# whole point of this function: macOS ships a /usr/bin/python3 stub that exists and
+# exits non-zero until the Xcode tools are installed, and Windows puts a python3.exe
+# App Execution Alias on PATH that prints an advert to stdout instead of running.
+# Both satisfy `command -v`. Neither can parse JSON.
+#
+# Echoes the interpreter name, or nothing when there is no working one.
+_PY_RESOLVED=""
+py_interp() {
+  if [[ -n "$_PY_RESOLVED" ]]; then
+    [[ "$_PY_RESOLVED" == "none" ]] && return 1
+    printf '%s' "$_PY_RESOLVED"
+    return 0
+  fi
+  local c
+  for c in python3 python py; do
+    if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import json' >/dev/null 2>&1; then
+      _PY_RESOLVED="$c"
+      printf '%s' "$c"
+      return 0
+    fi
+  done
+  _PY_RESOLVED="none"
+  return 1
+}
+
+# Can anything here parse JSON at all? Callers whose decision depends on reading the
+# tool input MUST check this and say so when it is false, rather than treating an
+# unparsed payload as an empty one. An empty payload reads as "nothing to check",
+# which is how a guard comes to approve an install it never looked at.
+# jq is probed by RUNNING it, for the same reason py_interp is. Checking `have jq`
+# alone repeated the exact error this file was changed to remove: a jq on PATH that
+# cannot run satisfied the check, get_json_field then fell to the jq branch, jq
+# failed, the field came back empty, and the caller read that as "no command" and
+# allowed. Existence is not function; that distinction is the whole point here.
+jq_works() { have jq && printf '{}' | jq -e . >/dev/null 2>&1; }
+
+json_parser_available() { py_interp >/dev/null || jq_works; }
+
 # JSON-encode a string for safe inclusion in JSON output.
-# Uses python3 (always present on dev machines) — falls back to jq if not.
 jsonenc() {
-  if have python3; then
-    python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()), end="")'
-  elif have jq; then
+  local py
+  if py="$(py_interp)"; then
+    "$py" -c 'import json,sys; print(json.dumps(sys.stdin.read()), end="")'
+  elif jq_works; then
     jq -Rs .
   else
-    # last-resort manual encoding — escapes the bare minimum
-    sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e ':a;N;$!ba;s/\n/\\n/g' -e 's/\r/\\r/g' -e 's/\t/\\t/g' \
-      | awk 'BEGIN{printf "\""} {printf "%s", $0} END{printf "\""}'
+    # Last-resort encoder. The previous version ran its s/// commands in sed's first
+    # cycle and only then slurped the remaining lines with :a;N;$!ba, so every
+    # backslash and double quote after line 1 reached the output unescaped and the
+    # hook response was invalid JSON -- which Claude Code drops silently, taking the
+    # entire injected context with it. awk escapes each line before joining, so the
+    # order cannot be got wrong. Control characters other than tab and CR are left
+    # as-is; this path is a fallback for a host with neither python nor jq.
+    awk '
+      BEGIN { ORS = ""; printf "\"" }
+      {
+        s = $0
+        gsub(/\\/, "\\\\", s)
+        gsub(/"/,  "\\\"", s)
+        gsub(/\t/, "\\t",  s)
+        gsub(/\r/, "\\r",  s)
+        if (NR > 1) printf "\\n"
+        printf "%s", s
+      }
+      END { printf "\"" }'
   fi
 }
 
@@ -83,8 +138,9 @@ read_stdin() {
 # Extract a JSON field from stdin payload using python3 (most portable).
 # Usage: get_json_field <input> <jq-style.path>   (dotted path only, no arrays)
 get_json_field() {
-  local input="$1" path="$2"
-  python3 -c "
+  local input="$1" path="$2" py
+  if py="$(py_interp)"; then
+    "$py" -c "
 import json,sys
 try:
     d = json.loads(sys.argv[1])
@@ -96,4 +152,15 @@ try:
 except Exception:
     pass
 " "$input" "$path" 2>/dev/null
+  elif jq_works; then
+    # Dotted path only, matching the python branch. // empty keeps a missing key
+    # printing nothing rather than the string "null".
+    printf '%s' "$input" | jq -r --arg p "$path" 'getpath($p | split(".")) // empty' 2>/dev/null
+  else
+    # No parser. Print nothing -- and note that callers must not read that as "the
+    # field was absent". json_parser_available() exists so they can tell the two
+    # apart, because treating them as the same is what let an unchecked install
+    # through.
+    printf ''
+  fi
 }

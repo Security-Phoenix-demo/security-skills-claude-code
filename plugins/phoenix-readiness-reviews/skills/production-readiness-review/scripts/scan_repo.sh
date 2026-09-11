@@ -12,7 +12,10 @@
 #             if it exists, else main, else master, else skip diff sections)
 #   --exclude extra path regex to ignore on top of the vendor defaults
 #
-# Exit codes: 0 = scan completed (findings are NOT failures), 1 = bad usage/path.
+# Exit codes: 0 = scan completed (findings are NOT failures), 1 = bad usage/path,
+#             2 = the scan did NOT complete — a search engine refused a pattern, or no
+#                 search engine was found at all. A section that could not run prints
+#                 SEARCH FAILED and must never be read as "clean".
 set -uo pipefail
 
 REPO=""
@@ -31,16 +34,59 @@ done
 [[ -z "$REPO" || ! -d "$REPO" ]] && { echo "usage: $0 <repo-path> [--base ref] [--exclude regex]" >&2; exit 1; }
 cd "$REPO" || exit 1
 
-EXCLUDE_RE='(^|/)(node_modules|dist|build|out|target|vendor|\.git|\.venv|venv|__pycache__|coverage|\.next|\.terraform)(/|$)'
+# [.] rather than a backslash-escaped dot: these are passed to awk with -v, which
+# processes escape sequences in the assignment and prints a warning for each one,
+# straight into the middle of the report this script exists to produce.
+EXCLUDE_RE='(^|/)(node_modules|dist|build|out|target|vendor|[.]git|[.]venv|venv|__pycache__|coverage|[.]next|[.]terraform)(/|$)'
 [[ -n "$EXTRA_EXCLUDE" ]] && EXCLUDE_RE="$EXCLUDE_RE|$EXTRA_EXCLUDE"
-TEST_RE='(^|/)(tests?|spec|__tests__|e2e|integration[-_]tests?)(/|$)|\.(test|spec)\.[a-z]+$|(^|/)test_[^/]+\.py$|[^/]+_test\.(go|py|rb)$'
+TEST_RE='(^|/)(tests?|spec|__tests__|e2e|integration[-_]tests?)(/|$)|[.](test|spec)[.][a-z]+$|(^|/)test_[^/]+[.]py$|[^/]+_test[.](go|py|rb)$'
+
+# A search that cannot run has to say so. The previous version sent the engine's stderr
+# to /dev/null and discarded its exit status, so a pattern the engine REFUSED came back
+# as an empty result set and printed "0 hit(s) / _none_" — the one failure mode that
+# reads exactly like good news. Both are kept now: diagnostics land in $SEARCH_ERR and
+# the status is returned untouched (0 = matched, 1 = no match, >=2 = the engine refused
+# the pattern, or is not there at all).
+SEARCH_ERR="$(mktemp "${TMPDIR:-/tmp}/scan_repo.err.XXXXXX")" || {
+  echo "FATAL: cannot create a temp file for engine diagnostics" >&2; exit 2; }
+trap 'rm -f "$SEARCH_ERR"' EXIT
+SEARCH_FAILURES=0
 
 # SEARCH <regex> [ci]  — ci="i" makes the match case-insensitive
 if command -v rg >/dev/null 2>&1; then
-  SEARCH() { if [[ "${2:-}" == "i" ]]; then rg -i --no-heading --line-number --color never -e "$1" . 2>/dev/null; else rg --no-heading --line-number --color never -e "$1" . 2>/dev/null; fi; }
+  ENGINE="ripgrep"
+  SEARCH() { if [[ "${2:-}" == "i" ]]; then rg -i --no-heading --line-number --color never -e "$1" . 2>"$SEARCH_ERR"; else rg --no-heading --line-number --color never -e "$1" . 2>"$SEARCH_ERR"; fi; }
+elif command -v grep >/dev/null 2>&1; then
+  ENGINE="grep"
+  SEARCH() { if [[ "${2:-}" == "i" ]]; then grep -rnIiE "$1" . 2>"$SEARCH_ERR"; else grep -rnIE "$1" . 2>"$SEARCH_ERR"; fi; }
 else
-  SEARCH() { if [[ "${2:-}" == "i" ]]; then grep -rnIiE "$1" . 2>/dev/null; else grep -rnIE "$1" . 2>/dev/null; fi; }
+  # No engine, no scan. Printing "0 hits" here would be a claim about a repository
+  # that nothing ever read.
+  echo "FATAL: neither ripgrep (rg) nor grep is on PATH — nothing can be scanned." >&2
+  exit 2
 fi
+
+# rg is only the search. Filtering, rejecting and counting all run through awk and
+# grep whichever engine searched, but those were checked only as a fallback FOR rg.
+# On a host with rg and no grep every section printed "- <empty> hit(s)" then _none_
+# and exited 0; with no awk, twenty sections of 0 hits and not even that tell.
+for _tool in awk grep; do
+  command -v "$_tool" >/dev/null 2>&1 || {
+    echo "FATAL: $_tool is required - filtering and counting use it on both engines. Nothing was scanned." >&2
+    exit 2
+  }
+done
+
+# A malformed --exclude made awk die on every emit, and the report came out as twenty
+# perfectly-formed "0 hit(s) / _none_" sections with exit 0. README documents
+# `--exclude 'generated/'`, and SKILL.md documents redirecting stdout to a file, so a
+# single typo produced a clean-looking artefact for a model to review. Check it once.
+for _re_name in "$EXCLUDE_RE" "$TEST_RE"; do
+  if ! echo x | awk -v re="$_re_name" '$0 ~ re { }' >/dev/null 2>&1; then
+    echo "FATAL: not a valid regex for awk: $_re_name" >&2
+    exit 2
+  fi
+done
 
 # filter <exclude-tests:yes|no>
 filter() {
@@ -53,9 +99,43 @@ filter() {
 }
 
 section() { printf '\n## %s\n\n' "$1"; }
-emit() {  # emit <title> <regex> <drop_tests> <cap> [ci]
-  local title="$1" re="$2" dt="$3" cap="${4:-40}" ci="${5:-}" out n
-  out="$(SEARCH "$re" "$ci" | filter "$dt")"
+emit() {  # emit <title> <regex> <drop_tests> <cap> [ci] [reject_re]
+          # reject_re drops matching LINES after the search. It is the portable
+          # stand-in for a negative look-ahead — see the injection section below for
+          # what that costs.
+  local title="$1" re="$2" dt="$3" cap="${4:-40}" ci="${5:-}" reject="${6:-}" out rc n
+  out="$(SEARCH "$re" "$ci")"; rc=$?
+  if [[ "$rc" -ge 2 ]]; then
+    SEARCH_FAILURES=$((SEARCH_FAILURES + 1))
+    printf '\n### %s — SEARCH FAILED\n' "$title"
+    printf '\n**This check examined NOTHING. It is unscanned, not clean.**\n'
+    printf '\n```\nengine:  %s\nexit:    %s\npattern: %s\n%s\n```\n' \
+      "$ENGINE" "$rc" "$re" "$(cat "$SEARCH_ERR" 2>/dev/null)"
+    return 0
+  fi
+  out="$(printf '%s\n' "$out" | filter "$dt")"; rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    SEARCH_FAILURES=$((SEARCH_FAILURES + 1))
+    printf '\n### %s - FILTER FAILED\n' "$title"
+    printf '\n**This check examined NOTHING. It is unscanned, not clean.**\n'
+    printf '\n```\nawk exit: %s\nexclude:  %s\n```\n' "$rc" "$EXCLUDE_RE"
+    return 0
+  fi
+
+  # `|| true` here swallowed grep's exit 2, so a malformed reject pattern emptied the
+  # section and printed _none_ -- the fail-open reappearing inside the mechanism that
+  # was added to stop it. grep -v exits 1 when it drops every line, which is a real
+  # empty result; only 2 and above is a broken pattern.
+  if [[ -n "$reject" ]]; then
+    out="$(printf '%s\n' "$out" | grep -Ev "$reject")"; rc=$?
+    if [[ "$rc" -ge 2 ]]; then
+      SEARCH_FAILURES=$((SEARCH_FAILURES + 1))
+      printf '\n### %s - REJECT PATTERN FAILED\n' "$title"
+      printf '\n**This check examined NOTHING. It is unscanned, not clean.**\n'
+      printf '\n```\ngrep exit: %s\nreject:    %s\n```\n' "$rc" "$reject"
+      return 0
+    fi
+  fi
   n="$(printf '%s' "$out" | grep -c . || true)"
   printf '\n### %s — %s hit(s)\n' "$title" "$n"
   [[ "$n" -eq 0 ]] && { printf '\n_none_\n'; return; }
@@ -68,7 +148,7 @@ echo "# Deterministic scan — $(basename "$(pwd)")"
 echo
 echo "- scanned: \`$(pwd)\`"
 echo "- date: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-command -v rg >/dev/null 2>&1 && echo "- engine: ripgrep" || echo "- engine: grep (ripgrep not installed)"
+[[ "$ENGINE" == "ripgrep" ]] && echo "- engine: ripgrep" || echo "- engine: grep (ripgrep not installed)"
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 && echo "- commit: $(git rev-parse --short HEAD 2>/dev/null)"
 
 section "1. Incompleteness markers (non-test paths)"
@@ -91,7 +171,28 @@ section "4. Security surface"
 emit "Possible hardcoded secrets" '(api[_-]?key|secret|password|passwd|token|private[_-]?key)\s*[:=]\s*["'"'"'][^"'"'"']{8,}' yes 40 i
 emit "Auth / permission markers" '@(login_required|requires_auth|authorize|PreAuthorize|permission_classes)|isAuthenticated|checkPermission|requireRole|tenant_id|tenantId' yes
 emit "Route / endpoint definitions" '@(app|router|blueprint|api)\.(get|post|put|patch|delete)|app\.(get|post|put|patch|delete)\(|@(Get|Post|Put|Patch|Delete)Mapping|path\(|urlpatterns' yes 60
-emit "Injection-prone patterns" 'eval\(|exec\(|pickle\.loads|yaml\.load\((?!.*Loader)|shell=True|innerHTML\s*=|dangerouslySetInnerHTML|f".*SELECT .*\{|\+ *" *(SELECT|INSERT|UPDATE|DELETE)' yes
+# One look-ahead took the whole section down for as long as it was here. This
+# alternation used to end its yaml branch with `yaml\.load\((?!.*Loader)`. ripgrep's
+# default Rust engine has no look-around: it rejected the ENTIRE alternation and
+# exited 2, so eval(, exec(, pickle.loads, shell=True, innerHTML= and
+# dangerouslySetInnerHTML were never searched for — and the swallowed stderr turned
+# that into "0 hit(s) / _none_". Under grep -E it was no better, only quieter: the
+# branch compiled and matched nothing, so unsafe yaml.load calls went unreported with
+# no error at all.
+#
+# --pcre2 would compile the look-ahead, but PCRE2 is a compile-time option in ripgrep
+# and is missing from some distro builds, so that route means detecting the feature
+# and writing a degraded path anyway — two code paths, and the one nobody runs locally
+# is the one CI takes. The portable choice is to use no look-around at all: match
+# plainly, then drop the lines we did not want. What that costs is that rejection is
+# per-LINE, which is why yaml.load is its own entry below — folded into the alternation,
+# a line that happened to mention Loader would also suppress an eval( sitting on it.
+emit "Injection-prone patterns" 'eval\(|exec\(|pickle\.loads|shell=True|innerHTML\s*=|dangerouslySetInnerHTML|f".*SELECT .*\{|\+ *" *(SELECT|INSERT|UPDATE|DELETE)' yes
+# yaml.load() without an explicit Loader= will construct arbitrary Python objects.
+# Lines naming Loader= are dropped; a call passing the loader on a CONTINUATION line
+# still shows up here, which is the right way round for a section whose output is
+# leads to open rather than verdicts.
+emit "Unsafe yaml.load (no Loader= on the line)" 'yaml\.load\(' yes 40 "" 'Loader\s*='
 emit "Verify: TLS / cert checks disabled" 'verify\s*=\s*False|rejectUnauthorized:\s*false|InsecureSkipVerify:\s*true|--no-check-certificate' yes
 
 section "5. Config, flags, migrations, deploy"
@@ -144,3 +245,11 @@ fi
 section "Scan complete"
 echo "Findings above are leads, not verdicts. Each one must be opened and judged in context"
 echo "before it enters the audit table, and each cited as path:line."
+
+if [[ "$SEARCH_FAILURES" -gt 0 ]]; then
+  echo
+  echo "**$SEARCH_FAILURES search(es) FAILED TO RUN — this scan is incomplete.** The sections"
+  echo "marked SEARCH FAILED above examined no files at all. Fix the pattern and re-run"
+  echo "before any of this is used as evidence."
+  exit 2
+fi

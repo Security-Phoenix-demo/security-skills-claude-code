@@ -199,7 +199,27 @@ add_finding() {
 # under rg. Hyphen-last is the same set in both.
 scan_file() {
   local f="$1"
-  [[ ! -f "$f" ]] && return
+
+  # A file that cannot be read is NOT a file with nothing in it. Returning here in
+  # silence let the hook prove a scanner works, announce nothing, and have looked at
+  # nothing -- the same shape as the defect the scanner probe above exists to close,
+  # one layer over. The header of this file promises no write goes by unseen.
+  if [[ ! -f "$f" ]]; then
+    # A Windows-style path is worth one translation attempt before giving up. Git
+    # Bash resolves C:\... natively, but not every msys build does, and the cost of
+    # being wrong is a hook that reports clean on a file it never opened.
+    if [[ "$f" =~ ^([A-Za-z]):[\\/](.*)$ ]]; then
+      local _drive _rest
+      _drive="$(printf '%s' "${BASH_REMATCH[1]}" | tr 'A-Z' 'a-z')"
+      _rest="${BASH_REMATCH[2]//\\//}"
+      [[ -f "/$_drive/$_rest" ]] && f="/$_drive/$_rest"
+    fi
+  fi
+
+  if [[ ! -f "$f" ]]; then
+    SCAN_ERRORS+=("$f could not be read, so it was NOT scanned - this is not a clean result")
+    return
+  fi
   local ext="${f##*.}"
 
   case "$ext" in
@@ -260,7 +280,17 @@ scan_file() {
       add_finding CRITICAL "dynamic code exec"                   "$f" '(^|[^A-Za-z0-9_])(eval|assert)\('
       add_finding CRITICAL "unsafe deserialisation"              "$f" '(^|[^A-Za-z0-9_])unserialize\('
       add_finding HIGH     "shell exec"                          "$f" '(^|[^A-Za-z0-9_])(system|exec|passthru|shell_exec|popen|proc_open)\('
-      add_finding HIGH     "SQL concatenation"                   "$f" 'mysqli_query\([^,]*\$_(GET|POST|REQUEST)|->query\([^)]*\$_(GET|POST|REQUEST)'
+      # [^)]* not [^,]*: mysqli_query's FIRST argument is always the connection
+      # handle, so a class that cannot cross the comma could never reach the
+      # tainted second argument. Measured on mysqli_query($conn, $_GET["q"]): 0 hits.
+      add_finding HIGH     "SQL concatenation"                   "$f" 'mysqli_query\([^)]*\$_(GET|POST|REQUEST)|->query\([^)]*\$_(GET|POST|REQUEST)'
+      ;;
+    *)
+      # No rules for this extension is not the same as nothing to report. Shell,
+      # YAML, Terraform, HTML, SQL, C, Swift, Vue and Svelte all landed here and came
+      # back byte-identical to a scanned-and-clean file -- while this file's own header
+      # says "no write goes by unseen" and session-start.sh tells every session so.
+      SCAN_ERRORS+=("no patterns exist for .$ext - $f was NOT scanned")
       ;;
   esac
 }
